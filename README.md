@@ -4,7 +4,7 @@
 地理院地図・Q地図風の左サイドパネルでレイヤーを選ぶ構成。
 家系図プロジェクト（01FamilyTree）とは無関係の独立プロジェクト。
 
-**公開URL: https://komiri0708.github.io/map-viewer/** （GitHub Pages。リポジトリ: komiri0708/map-viewer）
+**公開URL: https://oldmaproots.github.io/map-viewer/** （GitHub Pages。リポジトリ: oldmaproots/map-viewer）
 
 ## 動かし方
 
