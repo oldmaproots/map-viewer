@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>地図ビューア</title>
+
+  <!-- Leaflet: 地図表示のための無料ライブラリ -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- MapLibre GL: ベクトルタイル(法務局地図など)を描くためのライブラリ。
+       leaflet-maplibre-gl はそれをLeafletのレイヤーとして使えるようにする接続部品 -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 左サイドパネル(地理院地図・Q地図風) -->
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <span>地図の種類</span>
+        <button id="sidebar-close" title="パネルを閉じる">✕</button>
+      </div>
+      <div id="sidebar-body">
+        <!-- 現在表示中のレイヤー一覧(透過スライダー付き) -->
+        <div id="active-layers">
+          <h3>選択中のレイヤー</h3>
+          <div id="active-layers-list"></div>
+        </div>
+        <!-- カテゴリ一覧はscript.jsがここに生成する -->
+        <div id="categories"></div>
+      </div>
+    </div>
+
+    <!-- 地図本体 -->
+    <div id="map"></div>
+  </div>
+
+  <!-- パネルを閉じたときに出る開くボタン -->
+  <button id="sidebar-open" style="display:none">☰ 地図の種類</button>
+
+  <!-- 住所・地名検索(右上) -->
+  <div id="search-box">
+    <input type="text" id="search-input" placeholder="住所・地名で検索">
+    <button id="search-btn" title="検索">🔍</button>
+    <div id="search-results" class="hidden"></div>
+  </div>
+
+  <!-- 一時的な通知(位置情報エラーなど) -->
+  <div id="toast"></div>
+
+  <!-- 年代別写真の時系列スライダー(有効時のみ表示) -->
+  <div id="timeseries-panel">
+    <div id="timeseries-label"></div>
+    <input type="range" id="timeseries-slider" min="0" max="0" value="0">
+    <div id="timeseries-dots"></div>
+    <div id="timeseries-note"></div>
+  </div>
+
+  <div id="status-bar">読み込み中...</div>
+
+  <!-- データと部品(読み込む順番に意味がある: script.jsが最後) -->
+  <script src="konjaku-data.js"></script>
+  <script src="dem-layers.js"></script>
+  <script src="timeseries.js"></script>
+  <script src="kumamoto.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

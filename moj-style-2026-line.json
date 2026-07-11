@@ -1,0 +1,100 @@
+{
+  "version": 8,
+  "name": "地番図2026",
+  "glyphs": "https://glyphs.geolonia.com/{fontstack}/{range}.pbf",
+  "sources": {
+    "moj_chiban": {
+      "type": "vector",
+      "url": "https://tiles.kmproj.com/mojxml/2026.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "mojxml-fude",
+      "source": "moj_chiban",
+      "source-layer": "mojxml",
+      "type": "fill",
+      "paint": {
+        "fill-color": "rgb(0, 0, 0)",
+        "fill-opacity": 0
+      },
+      "layout": {
+        "visibility": "visible"
+      },
+      "minzoom": 16,
+      "maxzoom": 20
+    },
+    {
+      "id": "mojxml-fude-outline",
+      "source": "moj_chiban",
+      "source-layer": "mojxml",
+      "type": "line",
+      "paint": {
+        "line-color": "rgb(128, 0, 128)",
+        "line-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          16, 0.4,
+          20, 0.8
+        ],
+        "line-width": 1.5
+      },
+      "layout": {
+        "visibility": "visible"
+      },
+      "minzoom": 16,
+      "maxzoom": 20
+    },
+    {
+      "id": "mojxml-chiban",
+      "source": "moj_chiban",
+      "source-layer": "mojxml",
+      "type": "symbol",
+      "layout": {
+        "text-field": "{地番}",
+        "text-size": 13,
+        "text-anchor": "center",
+        "text-font": ["Noto Sans CJK JP Regular"]
+      },
+      "paint": {
+        "text-color": "rgb(128, 0, 128)",
+        "text-halo-color": "rgba(255, 255, 255, 0.3)",
+        "text-halo-width": 2
+      },
+      "minzoom": 16,
+      "maxzoom": 20
+    },
+    {
+      "id": "mojxml_agg-fill",
+      "source": "moj_chiban",
+      "source-layer": "mojxml_agg",
+      "type": "fill",
+      "paint": {
+        "fill-color": "rgb(128, 0, 128)",
+        "fill-opacity": 0.1
+      },
+      "layout": {
+        "visibility": "visible"
+      },
+      "minzoom": 0,
+      "maxzoom": 16
+    },
+    {
+      "id": "mojxml_agg-outline",
+      "source": "moj_chiban",
+      "source-layer": "mojxml_agg",
+      "type": "line",
+      "paint": {
+        "line-color": "rgb(128, 0, 128)",
+        "line-opacity": 0.4,
+        "line-width": 1.5
+      },
+      "layout": {
+        "visibility": "visible"
+      },
+      "minzoom": 0,
+      "maxzoom": 16
+    }
+  ]
+}

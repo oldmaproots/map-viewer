@@ -1,0 +1,500 @@
+/* ============================================================
+   地図ビューアの見た目。地理院地図・Q地図風の左パネル構成。
+   ============================================================ */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: "Meiryo", "Hiragino Kaku Gothic Pro", sans-serif;
+}
+
+/* 画面全体を「左パネル + 地図」の横並びにする */
+#app {
+  display: flex;
+  height: 100%;
+}
+
+#map {
+  flex: 1;           /* 残りの幅を全部使う */
+  height: 100%;
+}
+
+/* ---- 左サイドパネル ---- */
+#sidebar {
+  width: 320px;
+  height: 100%;
+  background: #ffffff;
+  border-right: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.15);
+  z-index: 1100;
+}
+
+#sidebar.hidden {
+  display: none;
+}
+
+#sidebar-header {
+  background: #2b5797;   /* 地理院地図風の紺色 */
+  color: white;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#sidebar-close {
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+}
+
+#sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+/* パネルを閉じたときに出す「地図の種類」ボタン */
+#sidebar-open {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1100;
+  background: #2b5797;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- 選択中のレイヤー一覧 ---- */
+#active-layers {
+  border-bottom: 2px solid #2b5797;
+  padding: 6px 10px;
+}
+
+#active-layers h3 {
+  margin: 4px 0;
+  font-size: 12px;
+  color: #2b5797;
+}
+
+#active-layers .empty-note {
+  font-size: 11px;
+  color: #999;
+  margin: 4px 0;
+}
+
+.active-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 0;
+  border-bottom: 1px dotted #ddd;
+}
+
+.active-row .name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.active-row input[type="range"] {
+  width: 80px;
+}
+
+.active-row .remove-btn {
+  cursor: pointer;
+  border: none;
+  background: #eee;
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 1px 6px;
+}
+
+.active-row .remove-btn:hover {
+  background: #f5c6c6;
+}
+
+/* ---- カテゴリ(アコーディオン) ---- */
+details.category {
+  border-bottom: 1px solid #ddd;
+}
+
+details.category > summary {
+  cursor: pointer;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  background: #f2f5fa;
+  list-style: none;             /* 既定の▶マークを消して自前で付ける */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+details.category > summary::before {
+  content: "▶";
+  font-size: 10px;
+  color: #2b5797;
+  transition: transform 0.15s;
+}
+
+details.category[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+details.category > summary:hover {
+  background: #e3ebf6;
+}
+
+.category-body {
+  padding: 6px 12px 10px 22px;
+  font-size: 12px;
+}
+
+/* サブグループ(カテゴリ内の小見出し) */
+details.subgroup {
+  margin: 2px 0;
+}
+
+details.subgroup > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  color: #333;
+  padding: 4px 0;
+  list-style: none;
+  user-select: none;
+}
+
+details.subgroup > summary::before {
+  content: "▶ ";
+  font-size: 9px;
+  color: #888;
+}
+
+details.subgroup[open] > summary::before {
+  content: "▼ ";
+}
+
+.subgroup-body {
+  padding-left: 14px;
+}
+
+/* レイヤー1行(チェックボックス+名前) */
+label.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+label.layer-row:hover {
+  background: #f0f4fa;
+}
+
+/* 出典などの注記 */
+.source-note {
+  font-size: 10px;
+  color: #888;
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.source-note a {
+  color: #2b5797;
+}
+
+/* 地域選択などのセレクトボックス */
+.category-body select {
+  width: 100%;
+  font-size: 12px;
+  margin: 4px 0;
+  padding: 2px;
+}
+
+/* 自分で作る色別標高図の設定欄 */
+.relief-settings {
+  background: #f7f7f7;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 4px 0;
+  font-size: 11px;
+}
+
+.relief-settings .row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+
+.relief-settings input[type="number"] {
+  width: 64px;
+  font-size: 11px;
+}
+
+.relief-settings button {
+  font-size: 11px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+/* ---- 年代別写真の時系列パネル(画面下部) ---- */
+#timeseries-panel {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+  padding: 8px 14px;
+  width: 420px;
+  max-width: calc(100% - 40px);
+  font-size: 12px;
+  display: none;
+}
+
+#timeseries-panel.visible {
+  display: block;
+}
+
+#timeseries-label {
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+#timeseries-label .no-photo {
+  color: #c00;
+  font-weight: normal;
+}
+
+#timeseries-slider {
+  width: 100%;
+}
+
+#timeseries-note {
+  text-align: center;
+  color: #c00;
+  font-size: 11px;
+}
+
+/* 年代の目盛り(利用可能かどうかの点) */
+#timeseries-dots {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 6px;
+  height: 8px;
+}
+
+#timeseries-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ccc;
+}
+
+#timeseries-dots span.available {
+  background: #2b8a3e;
+}
+
+#timeseries-dots span.current {
+  outline: 2px solid #2b5797;
+}
+
+/* ---- 凡例(右下、Leafletコントロールとして表示) ---- */
+.legend-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+  width: 230px;
+  font-size: 11px;
+}
+
+.legend-header {
+  background: #2b5797;
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  user-select: none;
+}
+
+.legend-body {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px 8px 8px;
+}
+
+.legend-section {
+  margin-top: 6px;
+}
+
+.legend-section-title {
+  font-weight: bold;
+  color: #2b5797;
+  border-bottom: 1px solid #ccd6e8;
+  padding-bottom: 2px;
+  margin-bottom: 3px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.legend-item:hover {
+  background: #f0f4fa;
+}
+
+.legend-swatch {
+  width: 16px;
+  height: 12px;
+  border: 2px solid;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---- 住所・地名検索(右上) ---- */
+#search-box {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1100;
+  width: 240px;
+}
+
+#search-box input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 34px 7px 10px;
+  font-size: 13px;
+  border: 1px solid #999;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+#search-box button {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  bottom: 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#search-results {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-top: 3px;
+  max-height: 260px;
+  overflow-y: auto;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  font-size: 12px;
+}
+
+#search-results.hidden {
+  display: none;
+}
+
+.search-result-item {
+  padding: 6px 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.search-result-item.selectable {
+  cursor: pointer;
+}
+
+.search-result-item.selectable:hover {
+  background: #eef3fb;
+}
+
+/* ---- 現在地ボタン(Leafletコントロール) ---- */
+.locate-btn {
+  background: white;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.locate-btn:hover {
+  background: #f0f4fa;
+}
+
+/* ---- 一時的な通知(トースト) ---- */
+#toast {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  background: rgba(40, 40, 40, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+#toast.show {
+  opacity: 1;
+}
+
+/* ---- 画面左下のステータス表示 ---- */
+#status-bar {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Leafletのズームボタンをパネルと重ならない位置に */
+.leaflet-left .leaflet-control {
+  margin-left: 10px;
+}
