@@ -427,27 +427,72 @@ function addSourceNote(container, html) {
 
 // ============================================================
 // 7. 背景地図(ラジオボタンで1つだけ選ぶ)
+// Googleマップは後から(APIの読み込みが済んだら)行を追加するので、
+// 行を作る処理を関数として持っておく。
 // ============================================================
-(function buildBaseCategory() {
-  const body = buildCategory("7. 背景地図");
-  Object.keys(BASE_LAYERS).forEach((name) => {
-    const row = document.createElement("label");
-    row.className = "layer-row";
-    const radio = document.createElement("input");
-    radio.type = "radio";
-    radio.name = "base-layer";
-    radio.checked = name === "標準地図";
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return;
-      map.removeLayer(currentBase);
-      currentBase = BASE_LAYERS[name];
-      currentBase.addTo(map);
-    });
-    row.appendChild(radio);
-    row.appendChild(document.createTextNode(name));
-    body.appendChild(row);
+let baseCategoryBody = null;
+const baseRadioByName = {}; // 切り替え失敗時に標準地図へ戻すために覚えておく
+
+function addBaseLayerRow(name) {
+  const row = document.createElement("label");
+  row.className = "layer-row";
+  const radio = document.createElement("input");
+  radio.type = "radio";
+  radio.name = "base-layer";
+  radio.checked = map.hasLayer(BASE_LAYERS[name]);
+  radio.addEventListener("change", () => {
+    if (!radio.checked) return;
+    map.removeLayer(currentBase);
+    currentBase = BASE_LAYERS[name];
+    currentBase.addTo(map);
   });
+  baseRadioByName[name] = radio;
+  row.appendChild(radio);
+  row.appendChild(document.createTextNode(name));
+  baseCategoryBody.appendChild(row);
+}
+
+(function buildBaseCategory() {
+  baseCategoryBody = buildCategory("7. 背景地図");
+  Object.keys(BASE_LAYERS).forEach(addBaseLayerRow);
 })();
+
+// ---- Googleマップ・Google航空写真の組み込み ----
+// Google公式のAPIを読み込み、成功したら背景地図の選択肢に追加する。
+// APIキーはGoogle Cloud側でリファラー制限・API制限・割り当て上限を設定済み
+// (ブラウザ配布前提の公開可能な値。02都市計画マップと共用)
+const GOOGLE_MAPS_API_KEY = "AIzaSyCtL-wwxXA-7Ag6ucXyguE8KH7HZtN9Fjk";
+
+function setUpGoogleBaseLayers() {
+  if (!GOOGLE_MAPS_API_KEY || typeof L.gridLayer.googleMutant !== "function") return;
+
+  window.__onGoogleMapsLoaded = () => {
+    BASE_LAYERS["Googleマップ"] = L.gridLayer.googleMutant({ type: "roadmap", maxZoom: 20 });
+    BASE_LAYERS["Google航空写真"] = L.gridLayer.googleMutant({ type: "hybrid", maxZoom: 20 });
+    addBaseLayerRow("Googleマップ");
+    addBaseLayerRow("Google航空写真");
+  };
+
+  // 認証エラー(キーの制限にこのサイトが含まれていない等)のときは
+  // 地図が真っ白になるのを防ぐため標準地図に戻す
+  window.gm_authFailure = () => {
+    showToast("Googleマップを利用できません(APIキーの設定を確認してください)");
+    const radio = baseRadioByName["標準地図"];
+    if (radio && !radio.checked) {
+      radio.checked = true;
+      radio.dispatchEvent(new Event("change"));
+    }
+  };
+
+  const script = document.createElement("script");
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&loading=async&callback=__onGoogleMapsLoaded`;
+  script.async = true;
+  script.onerror = () => {
+    console.warn("Google Maps APIの読み込みに失敗しました");
+  };
+  document.head.appendChild(script);
+}
+setUpGoogleBaseLayers();
 
 // ============================================================
 // サイドパネルの開閉
