@@ -29,7 +29,9 @@ html, body {
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 6px rgba(0, 0, 0, 0.15);
-  z-index: 1100;
+  /* スマホ表示で検索バーと重なったとき、パネル(と✕ボタン)が前に来るように
+     検索バー(1050)より大きい値にしている */
+  z-index: 1300;
 }
 
 #sidebar.hidden {
@@ -393,7 +395,7 @@ label.layer-row:hover {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 1100;
+  z-index: 1050; /* サイドパネル(1300)より背面。地図よりは前面 */
   width: 240px;
 }
 
