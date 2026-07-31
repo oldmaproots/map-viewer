@@ -1,0 +1,5 @@
+# Claude Code の個人用設定（許可リストなど）。共有しない
+.claude/settings.local.json
+
+# 色の出典に使う資料など、公開リポジトリには載せないファイル
+_reference/
