@@ -64,6 +64,56 @@ currentBase.addTo(map);
 const activeList = document.getElementById("active-layers-list");
 const activeLayers = new Map(); // id -> { row, handle }
 
+// ============================================================
+// レイヤーごとの専用ペイン(重ね順の変更に使う)
+// ------------------------------------------------------------
+// Leafletは「pane(ペイン)」という描画面の重なり順(z-index)で
+// レイヤーの前後関係を決める。既定では tilePane=200 / overlayPane=400。
+// ここではレイヤー1つにつき専用のペインを1つ作り、
+// 「選択中のレイヤー」一覧の並び順からz-indexを決める。
+// 一覧の上にあるものほど大きいz-index=地図で手前に描く(地理院地図と同じ向き)。
+// ============================================================
+const layerPanes = new Map(); // id -> ペイン名
+let paneSeq = 0;
+
+// idに対応する専用ペインを用意する(既にあれば使い回す)。ペイン名を返す。
+function ensureLayerPane(id) {
+  if (layerPanes.has(id)) return layerPanes.get(id);
+  const paneName = `layer-pane-${paneSeq++}`;
+  map.createPane(paneName);
+  layerPanes.set(id, paneName);
+  return paneName;
+}
+
+// 一覧の並び順どおりに、各ペインのz-indexを振り直す(上の行ほど手前)。
+// 併せて▲▼ボタンの有効/無効も更新する(先頭は▲不可・末尾は▼不可)。
+function applyLayerOrder() {
+  const rows = [...activeList.querySelectorAll(".active-row")];
+  const n = rows.length;
+  rows.forEach((row, i) => {
+    const paneName = layerPanes.get(row.dataset.layerId);
+    const pane = paneName ? map.getPane(paneName) : null;
+    // 手前(上の行)ほど大きい値。410〜(markerPane=600より小さく収める)
+    if (pane) pane.style.zIndex = String(410 + (n - 1 - i) * 2);
+    const up = row.querySelector(".order-up");
+    const down = row.querySelector(".order-down");
+    if (up) up.disabled = i === 0;
+    if (down) down.disabled = i === n - 1;
+  });
+}
+
+// ▲▼で行を1つ上/下へ動かして、重ね順を反映する
+function moveActiveRow(row, dir) {
+  if (dir < 0) {
+    const prev = row.previousElementSibling;
+    if (prev && prev.classList.contains("active-row")) activeList.insertBefore(row, prev);
+  } else {
+    const next = row.nextElementSibling;
+    if (next && next.classList.contains("active-row")) activeList.insertBefore(next, row);
+  }
+  applyLayerOrder();
+}
+
 function refreshActiveEmptyNote() {
   const note = activeList.querySelector(".empty-note");
   if (activeLayers.size === 0 && !note) {
@@ -78,9 +128,27 @@ function refreshActiveEmptyNote() {
 
 function registerActiveLayer(id, label, handle) {
   if (activeLayers.has(id)) return;
+  ensureLayerPane(id); // 専用ペインを確保しておく(重ね順の変更に使う)
 
   const row = document.createElement("div");
   row.className = "active-row";
+  row.dataset.layerId = id; // 並び順→ペインの対応付けに使う
+
+  // 重ね順を変える▲▼ボタン(▲=手前へ / ▼=奥へ)
+  const orderBtns = document.createElement("div");
+  orderBtns.className = "order-btns";
+  const upBtn = document.createElement("button");
+  upBtn.className = "order-btn order-up";
+  upBtn.textContent = "▲";
+  upBtn.title = "ひとつ手前に移動";
+  upBtn.addEventListener("click", () => moveActiveRow(row, -1));
+  const downBtn = document.createElement("button");
+  downBtn.className = "order-btn order-down";
+  downBtn.textContent = "▼";
+  downBtn.title = "ひとつ奥に移動";
+  downBtn.addEventListener("click", () => moveActiveRow(row, +1));
+  orderBtns.appendChild(upBtn);
+  orderBtns.appendChild(downBtn);
 
   const name = document.createElement("span");
   name.className = "name";
@@ -101,6 +169,7 @@ function registerActiveLayer(id, label, handle) {
   removeBtn.title = "このレイヤーを消す";
   removeBtn.addEventListener("click", () => handle.remove());
 
+  row.appendChild(orderBtns);
   row.appendChild(name);
   row.appendChild(slider);
   row.appendChild(removeBtn);
@@ -108,6 +177,7 @@ function registerActiveLayer(id, label, handle) {
 
   activeLayers.set(id, { row, handle });
   refreshActiveEmptyNote();
+  applyLayerOrder(); // 追加した行を含めて重ね順とボタンの状態を整える
 }
 
 function unregisterActiveLayer(id) {
@@ -116,10 +186,14 @@ function unregisterActiveLayer(id) {
   entry.row.remove();
   activeLayers.delete(id);
   refreshActiveEmptyNote();
+  applyLayerOrder(); // 残った行の▲▼の有効/無効を整える
 }
 
 // ---- チェックボックス式レイヤー行の共通部品 ----
-// makeLayer() はチェックを入れたときに呼ばれ、Leafletレイヤー(またはPromise)を返す
+// makeLayer(paneName) はチェックを入れたときに呼ばれ、
+// Leafletレイヤー(またはPromise)を返す。
+// paneName … このレイヤー専用の描画面(重ね順の変更に使う)。各レイヤーはこれを
+//            pane オプションに渡すことで、専用ペインに描かれるようになる。
 function buildLayerRow(container, id, label, makeLayer) {
   const row = document.createElement("label");
   row.className = "layer-row";
@@ -129,8 +203,9 @@ function buildLayerRow(container, id, label, makeLayer) {
 
   checkbox.addEventListener("change", async () => {
     if (checkbox.checked) {
+      const paneName = ensureLayerPane(id); // 先に専用ペインを用意する
       try {
-        layer = await makeLayer();
+        layer = await makeLayer(paneName);
       } catch (e) {
         checkbox.checked = false;
         return;
@@ -138,7 +213,12 @@ function buildLayerRow(container, id, label, makeLayer) {
       if (!checkbox.checked) return; // 読み込み中に外された
       layer.addTo(map);
       registerActiveLayer(id, label, {
-        setOpacity(v) { setLayerOpacity(layer, v); },
+        // 透過はペインごと(=このレイヤーだけ)の不透明度で調整する。
+        // これならタイル・ベクトル・GeoJSONなどレイヤーの種類を問わず同じ方法で効く。
+        setOpacity(v) {
+          const pane = map.getPane(paneName);
+          if (pane) pane.style.opacity = String(v);
+        },
         remove() { checkbox.checked = false; checkbox.dispatchEvent(new Event("change")); },
       });
     } else {
@@ -151,17 +231,6 @@ function buildLayerRow(container, id, label, makeLayer) {
   row.appendChild(document.createTextNode(label));
   container.appendChild(row);
   return checkbox;
-}
-
-// レイヤーの種類ごとに透過(不透明度)の設定方法が違うのを吸収する
-function setLayerOpacity(layer, v) {
-  if (typeof layer.setOpacity === "function") {
-    layer.setOpacity(v);                          // タイルレイヤー
-  } else if (layer._container) {
-    layer._container.style.opacity = v;           // MapLibre(ベクトル)レイヤー
-  } else if (typeof layer.setStyle === "function") {
-    layer.setStyle({ opacity: v, fillOpacity: v * 0.4 }); // GeoJSONレイヤー
-  }
 }
 
 // ---- カテゴリ(アコーディオン)の共通部品 ----
@@ -235,13 +304,14 @@ function addSourceNote(container, html) {
     const region = KONJAKU_REGIONS[regionIndex];
     region.eras.forEach((era, i) => {
       const id = `konjaku-${regionIndex}-${i}`;
-      buildLayerRow(eraContainer, id, `${region.name} ${era.era}`, () =>
+      buildLayerRow(eraContainer, id, `${region.name} ${era.era}`, (paneName) =>
         // {-y} が入ったURLはY座標が上下逆(TMS方式)。Leafletはそのまま解釈できる
         L.tileLayer(era.url, {
           minZoom: era.minZoom ?? 8,
           maxNativeZoom: era.maxNativeZoom ?? 16,
           maxZoom: 20,
           attribution: KONJAKU_ATTRIBUTION,
+          pane: paneName,
         })
       );
     });
@@ -263,20 +333,20 @@ function addSourceNote(container, html) {
   );
 
   // MapLibre(ベクトルタイル)レイヤーを作る。スタイル定義はローカルのJSONファイル
-  function makeMojLayer(styleFile) {
+  function makeMojLayer(styleFile, paneName) {
     const layer = L.maplibreGL({
       style: styleFile,
       attribution: MOJ_ATTRIBUTION,
-      pane: "overlayPane",
+      pane: paneName, // 専用ペインに描く(重ね順の変更に対応)
     });
     return layer;
   }
 
-  buildLayerRow(body, "moj-fill", "2026年 法務局地図(登記所備付地図)", () =>
-    makeMojLayer("moj-style-2026-fill.json")
+  buildLayerRow(body, "moj-fill", "2026年 法務局地図(登記所備付地図)", (paneName) =>
+    makeMojLayer("moj-style-2026-fill.json", paneName)
   );
-  buildLayerRow(body, "moj-line", "└ 塗りつぶしなし(境界線と地番のみ)", () =>
-    makeMojLayer("moj-style-2026-line.json")
+  buildLayerRow(body, "moj-line", "└ 塗りつぶしなし(境界線と地番のみ)", (paneName) =>
+    makeMojLayer("moj-style-2026-line.json", paneName)
   );
 })();
 
@@ -305,8 +375,8 @@ function addSourceNote(container, html) {
   ].forEach(({ key, title }) => {
     const sub = buildSubgroup(body, title, key === "dem1a");
     modes.forEach(({ mode, label }) => {
-      buildLayerRow(sub, `dem-${key}-${mode}`, `${label} (${DEM_SOURCES[key].name})`, () =>
-        createDemLayer(key, mode)
+      buildLayerRow(sub, `dem-${key}-${mode}`, `${label} (${DEM_SOURCES[key].name})`, (paneName) =>
+        createDemLayer(key, mode, null, paneName)
       );
     });
   });
@@ -347,12 +417,13 @@ function addSourceNote(container, html) {
   const body = buildCategory("5. 標高・土地の凹凸");
 
   // (a) 地理院の色別標高図(できあいのタイル)
-  buildLayerRow(body, "relief", "色別標高図(地理院)", () =>
+  buildLayerRow(body, "relief", "色別標高図(地理院)", (paneName) =>
     L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png", {
       minZoom: 5,
       maxNativeZoom: 15,
       maxZoom: 20,
       attribution: GSI_ATTRIBUTION,
+      pane: paneName,
     })
   );
 
@@ -385,9 +456,9 @@ function addSourceNote(container, html) {
     };
   }
 
-  const checkbox = buildLayerRow(body, "custom-relief", "自分で作る色別標高図", () => {
+  const checkbox = buildLayerRow(body, "custom-relief", "自分で作る色別標高図", (paneName) => {
     const sourceKey = document.getElementById("relief-source").value;
-    customLayer = createDemLayer(sourceKey, "custom", currentParams());
+    customLayer = createDemLayer(sourceKey, "custom", currentParams(), paneName);
     return customLayer;
   });
 
@@ -421,7 +492,9 @@ function addSourceNote(container, html) {
   );
 
   KUMAMOTO_LAYER_DEFS.forEach((def) => {
-    buildLayerRow(sub, `kumamoto-${def.key}`, def.label, () => ensureKumamotoLayer(def));
+    buildLayerRow(sub, `kumamoto-${def.key}`, def.label, (paneName) =>
+      ensureKumamotoLayer(def, paneName)
+    );
   });
 })();
 

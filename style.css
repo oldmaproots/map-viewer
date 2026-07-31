@@ -58,8 +58,8 @@ html, body {
 }
 
 #sidebar-body {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1;               /* 残りの高さを全部使う(カテゴリ一覧の領域) */
+  overflow-y: auto;      /* カテゴリが多いときはここだけスクロール */
   padding-bottom: 24px;
 }
 
@@ -79,16 +79,27 @@ html, body {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
-/* ---- 選択中のレイヤー一覧 ---- */
+/* ---- 選択中のレイヤー一覧(パネル下部に固定) ---- */
 #active-layers {
-  border-bottom: 2px solid #2b5797;
+  /* サイドパネルの一番下に置く。上のカテゴリ一覧(#sidebar-body)とは別の領域なので、
+     ここで項目が増えても上のチェックボックスの位置は動かない。 */
+  flex: none;                    /* 高さは中身とmax-heightで決める(縮まない) */
+  border-top: 2px solid #2b5797;
+  background: #f7f9fc;
   padding: 6px 10px;
+  max-height: 40%;               /* 増えすぎたらこの範囲内でスクロールさせる */
+  overflow-y: auto;
 }
 
 #active-layers h3 {
   margin: 4px 0;
   font-size: 12px;
   color: #2b5797;
+  /* スクロールしても見出しが上に残るようにする */
+  position: sticky;
+  top: -6px;
+  background: #f7f9fc;
+  padding: 2px 0;
 }
 
 #active-layers .empty-note {
@@ -128,6 +139,31 @@ html, body {
 
 .active-row .remove-btn:hover {
   background: #f5c6c6;
+}
+
+/* 重ね順を変える▲▼ボタン(リストの上=地図で手前) */
+.active-row .order-btns {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.active-row .order-btn {
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: #2b5797;
+  font-size: 9px;
+  padding: 0 2px;
+}
+
+.active-row .order-btn:disabled {
+  color: #ccc;
+  cursor: default;
+}
+
+.active-row .order-btn:not(:disabled):hover {
+  color: #123a6e;
 }
 
 /* ---- カテゴリ(アコーディオン) ---- */

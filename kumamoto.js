@@ -46,12 +46,29 @@ function darkenColor(hex, ratio) {
   );
 }
 
-// 区域区分・防火地域などの色分け（用途地域以外は従来どおり）
+// 種別ごとの色分け。
+//  - 区域区分（市街化区域・調整区域）は公式総括図凡例に無いので従来の色のまま残す。
+//  - 防火地域・準防火地域・特別用途地区・公園などは、
+//    「熊本県 都市計画総括図の凡例（令和2年2月）」の色をPDFから実測して合わせた。
+//    ※斜線ハッチや点線枠での表現は各レイヤー定義（KUMAMOTO_LAYER_DEFS）側の
+//      hatch / frameOnly といった目印で切り替える。ここでは色だけを決める。
 const KUMAMOTO_CATEGORY_COLORS = {
+  // 区域区分（公式凡例に無いため従来の色のまま。ユーザー確認済み）
   市街化区域: { color: "#d94b3f", fillColor: "#f2a89e" },
   市街化調整区域: { color: "#3f7fd9", fillColor: "#a9c8f2" },
-  防火地域: { color: "#b3271e", fillColor: "#e8a29c" },
-  準防火地域: { color: "#d98c1f", fillColor: "#f2d19c" },
+  // 防火地域・準防火地域（公式凡例の斜線ハッチ。fillColor=斜線の色、color=枠線）
+  防火地域: { color: "#6f6c9c", fillColor: "#8c89b8" },   // 灰紫
+  準防火地域: { color: "#d05f9c", fillColor: "#e27bb0" }, // 桃
+  // 特別用途地区（公式凡例の色付き点線枠。5種。線の色＝そのままの色）
+  大規模集客施設制限地区: { color: "#8dba1e", fillColor: "#8dba1e" }, // 黄緑
+  特別工業地区: { color: "#e0b000", fillColor: "#f2c206" },           // 金
+  文教地区: { color: "#0a6cc0", fillColor: "#0a6cc0" },               // 青
+  娯楽レクリエーション地区: { color: "#e30d2e", fillColor: "#e30d2e" }, // 赤
+  "行政・文化拠点地区": { color: "#b53877", fillColor: "#b53877" },     // 紫
+  // 公園・緑地・墓園（公式凡例は緑の枠線。3種とも同じ緑）
+  公園: { color: "#2e8b57", fillColor: "#2e8b57" },
+  緑地: { color: "#2e8b57", fillColor: "#2e8b57" },
+  墓園: { color: "#2e8b57", fillColor: "#2e8b57" },
 };
 
 // 用途地域を上の表に流し込む（塗りつぶしは公式色、境界線はそれを暗くした色）
@@ -81,38 +98,126 @@ const KUMAMOTO_FALLBACK_PALETTE = [
 ];
 
 // 表示できるレイヤーの一覧(02プロジェクトのv2と同じ内容)
+//  スタイルの目印(公式凡例に合わせるために追加した項目):
+//    hatch:true     … 塗りつぶしを斜線ハッチにする（防火・風致・特定用途制限・地区計画）
+//    frameOnly:true … 塗りつぶさず枠線だけにする（公園=緑の枠、特別用途地区=点線の枠）
+//    color/fillColor… レイヤー全体で色を1つに固定する（種別ごとに分けない）ときに指定
 const KUMAMOTO_LAYER_DEFS = [
+  // 都市計画区域の境界は公式凡例では「黒の一点鎖線」。dashArrayで一点鎖線を再現する
   { key: "toshikeikaku_kuiki", file: "toshikeikaku_kuiki.geojson", label: "都市計画区域(境界)",
-    categoryFields: [], fillOpacity: 0, weight: 3, dashArray: "10 6", color: "#283593" },
+    categoryFields: [], fillOpacity: 0, weight: 2, dashArray: "14 5 2 5", color: "#333333" },
   { key: "kuiki_kubun", file: "kuiki_kubun.geojson", label: "区域区分(市街化区域・調整区域)",
     categoryFields: ["AreaType"], fillOpacity: 0.35 },
   // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る
   { key: "youto_chiiki", file: "youto_chiiki.geojson", label: "用途地域",
     categoryFields: ["YoutoName", "AreaType"], fillOpacity: 0.7 },
+  // 防火・準防火地域は公式凡例では斜線ハッチ。種別(AreaType)ごとに灰紫/桃で塗り分ける
   { key: "bouka_chiiki", file: "bouka_chiiki.geojson", label: "防火地域・準防火地域",
-    categoryFields: ["AreaType"], fillOpacity: 0.35 },
+    categoryFields: ["AreaType"], fillOpacity: 0.85, weight: 1, hatch: true },
+  // 地区計画は公式凡例では1つの茶色の斜線ハッチ。区域名では色分けせず1色にする
   { key: "chiku_keikaku", file: "chiku_keikaku.geojson", label: "地区計画",
-    categoryFields: ["DistName"], fillOpacity: 0.3 },
+    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true,
+    fillColor: "#b98a52", color: "#8a6330" },
+  // 特別用途地区は公式凡例では色付きの点線の枠。種別ごとに色を変える
   { key: "tokubetsu_youto_chiku", file: "tokubetsu_youto_chiku.geojson", label: "特別用途地区",
-    categoryFields: ["YoutoName"], fillOpacity: 0.3 },
+    categoryFields: ["YoutoName"], fillOpacity: 0, weight: 3, frameOnly: true, dashArray: "1 5" },
+  // 特定用途制限地域は公式凡例では1つの橙色の斜線ハッチ。1色にする
   { key: "tokutei_youto_seigen", file: "tokutei_youto_seigen.geojson", label: "特定用途制限地域",
-    categoryFields: ["DistName"], fillOpacity: 0.3 },
+    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true,
+    fillColor: "#e0b45a", color: "#c78a2e" },
   { key: "ricchi_tekiseika_keikaku", file: "ricchi_tekiseika_keikaku.geojson", label: "立地適正化計画区域",
     categoryFields: ["AreaType"], fillOpacity: 0.2 },
+  // 公園・緑地・墓園は公式凡例では緑の枠線。塗らずに枠だけにする
   { key: "toshikeikaku_koen", file: "toshikeikaku_koen.geojson", label: "都市計画公園・緑地",
-    categoryFields: ["ParkType"], fillOpacity: 0.4 },
+    categoryFields: ["ParkType"], fillOpacity: 0, weight: 2, frameOnly: true },
+  // 都市計画道路は公式凡例では黒い線
   { key: "toshikeikaku_douro", file: "toshikeikaku_douro.geojson", label: "都市計画道路",
-    categoryFields: [], fillOpacity: 0, weight: 2 },
+    categoryFields: [], fillOpacity: 0, weight: 2, color: "#333333" },
+  // 風致地区は公式凡例では緑の斜線ハッチ
   { key: "fuuchi_chiku", file: "fuuchi_chiku.geojson", label: "風致地区",
-    categoryFields: [], fillOpacity: 0.25 },
+    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true,
+    fillColor: "#67b698", color: "#3f8f6d" },
   { key: "koudo_riyou_chiku", file: "koudo_riyou_chiku.geojson", label: "高度利用地区",
     categoryFields: [], fillOpacity: 0.3 },
   { key: "tochikukaku_seiri", file: "tochikukaku_seiri.geojson", label: "土地区画整理事業",
     categoryFields: ["DistName"], fillOpacity: 0.3 },
 ];
 
-// 頂点数の多いポリゴンが多いのでSVGより速いcanvasで描く
-const kumamotoRenderer = L.canvas({ padding: 0.5 });
+// ============================================================
+// 斜線ハッチを描けるCanvasレンダラー
+// ------------------------------------------------------------
+// 用途地域(6.9MB)や都市計画道路(5.2MB)のような大きなデータでも軽く動くよう、
+// 描画はSVGではなくCanvas(L.canvas)を使う。
+// ただし素のL.canvasは「べた塗り」しかできないので、斜線ハッチを塗れるように
+// 塗りつぶし処理(_fillStroke)だけ差し替えたレンダラーを用意する。
+//
+// 斜線は「8×8の小さなcanvasに斜め線を1本描いたタイル」を作り、
+// それを ctx.createPattern() で敷き詰めて塗る。
+// タイルは色ごとにキャッシュして使い回すので動作は軽い。
+// ============================================================
+
+// 斜線タイル(オフスクリーンcanvas)を色ごとに覚えておく入れ物
+const hatchTileCache = new Map(); // 色(文字列) -> 8×8のcanvas
+
+// 指定色の斜線タイルを1枚作る(または使い回す)
+function getHatchTile(color) {
+  if (hatchTileCache.has(color)) return hatchTileCache.get(color);
+  const size = 8;
+  const tile = document.createElement("canvas");
+  tile.width = size;
+  tile.height = size;
+  const c = tile.getContext("2d");
+  c.strokeStyle = color;
+  c.lineWidth = 1.5;
+  // 右上がりの斜線。タイルの継ぎ目でも線がつながるよう、角の外側にもはみ出して引く
+  c.beginPath();
+  c.moveTo(0, size); c.lineTo(size, 0);
+  c.moveTo(-size, size); c.lineTo(size, -size);
+  c.moveTo(0, size * 2); c.lineTo(size * 2, 0);
+  c.stroke();
+  hatchTileCache.set(color, tile);
+  return tile;
+}
+
+// L.Canvasを継承し、hatch:true のときだけ塗りを斜線パターンに差し替える。
+// それ以外はLeaflet 1.9.4の元の _fillStroke とまったく同じ挙動にしてある。
+const HatchCanvas = L.Canvas.extend({
+  _fillStroke(ctx, layer) {
+    const options = layer.options;
+
+    if (options.fill) {
+      ctx.globalAlpha = options.fillOpacity;
+      if (options.hatch) {
+        // 斜線タイルを敷き詰めて塗る
+        ctx.fillStyle = ctx.createPattern(
+          getHatchTile(options.hatchColor || options.fillColor || options.color),
+          "repeat"
+        );
+      } else {
+        ctx.fillStyle = options.fillColor || options.color;
+      }
+      ctx.fill(options.fillRule || "evenodd");
+    }
+
+    if (options.stroke && options.weight !== 0) {
+      if (ctx.setLineDash) {
+        ctx.setLineDash((layer.options && layer.options._dashArray) || []);
+      }
+      ctx.globalAlpha = options.opacity;
+      ctx.lineWidth = options.weight;
+      ctx.strokeStyle = options.color;
+      ctx.lineCap = options.lineCap;
+      ctx.lineJoin = options.lineJoin;
+      ctx.stroke();
+    }
+  },
+});
+
+// レイヤーごとに専用のHatchCanvasレンダラーを作る。
+// 重ね順(pane)をレイヤーごとに変えられるよう、共有せずに1レイヤー1つ作る。
+function createKumamotoRenderer(paneName) {
+  return new HatchCanvas({ padding: 0.5, pane: paneName || "overlayPane" });
+}
 
 // 色が決まっていない種別にも一貫した色を割り当てるためのキャッシュ
 const kumamotoColorCache = new Map();
@@ -151,20 +256,36 @@ function computeKumamotoStyle(def, feature) {
   }
   const name = kumamotoCategoryName(feature.properties, def.categoryFields);
   const defIndex = KUMAMOTO_LAYER_DEFS.indexOf(def);
-  const c = def.color
-    ? { color: def.color, fillColor: def.color }
-    : kumamotoColorFor(def.key, name, defIndex);
+
+  // 色を決める。
+  //  - レイヤー全体で色を固定している場合(def.color / def.fillColor)はそれを使う
+  //  - そうでなければ種別ごとの色(公式色 or 自動割り当て)を使う
+  let strokeColor, fillColor;
+  if (def.color || def.fillColor) {
+    fillColor = def.fillColor || def.color;
+    strokeColor = def.color || darkenColor(def.fillColor, 0.7);
+  } else {
+    const c = kumamotoColorFor(def.key, name, defIndex);
+    fillColor = c.fillColor;
+    strokeColor = c.color;
+  }
+
   return {
-    color: c.color,
-    fillColor: c.fillColor,
+    color: strokeColor,
+    fillColor: fillColor,
     weight: def.weight ?? 1,
     dashArray: def.dashArray,
-    fillOpacity: def.fillOpacity,
+    // frameOnly(枠だけ)のレイヤーは塗らない
+    fillOpacity: def.frameOnly ? 0 : def.fillOpacity,
+    // 自作HatchCanvasレンダラーが読む目印。斜線で塗るかどうかと、その色
+    hatch: !!def.hatch,
+    hatchColor: fillColor,
   };
 }
 
-// チェックを入れたときに初めてGeoJSONを取得してレイヤーを作る
-function ensureKumamotoLayer(def) {
+// チェックを入れたときに初めてGeoJSONを取得してレイヤーを作る。
+// paneName … このレイヤー専用の描画面(重ね順を変えるために使う)。script.jsが渡す。
+function ensureKumamotoLayer(def, paneName) {
   if (def._loadPromise) return def._loadPromise;
   def._loadPromise = fetch(KUMAMOTO_DATA_BASE + def.file)
     .then((res) => {
@@ -180,7 +301,8 @@ function ensureKumamotoLayer(def) {
       def._itemNames = [...names].sort(compareLegendItems);
 
       def._layer = L.geoJSON(geojson, {
-        renderer: kumamotoRenderer,
+        // このレイヤー専用のレンダラー(専用paneに描く)。重ね順の変更に対応する
+        renderer: createKumamotoRenderer(paneName),
         attribution: KUMAMOTO_ATTRIBUTION,
         style: (feature) => computeKumamotoStyle(def, feature),
       });
@@ -280,16 +402,36 @@ function buildLegendSection(def) {
       setKumamotoItemVisible(def, itemName, checkbox.checked);
     });
 
-    // 色見本
+    // 色見本。地図の見た目(べた塗り/斜線ハッチ/点線枠/枠線/線)に合わせて描く
     const defIndex = KUMAMOTO_LAYER_DEFS.indexOf(def);
-    const c = def.color
-      ? { color: def.color, fillColor: def.color }
-      : kumamotoColorFor(def.key, itemName === "__all__" ? null : itemName, defIndex);
+    let strokeColor, fillColor;
+    if (def.color || def.fillColor) {
+      fillColor = def.fillColor || def.color;
+      strokeColor = def.color || darkenColor(def.fillColor, 0.7);
+    } else {
+      const c = kumamotoColorFor(def.key, itemName === "__all__" ? null : itemName, defIndex);
+      fillColor = c.fillColor;
+      strokeColor = c.color;
+    }
     const swatch = document.createElement("span");
     swatch.className = "legend-swatch";
-    swatch.style.background = c.fillColor;
-    swatch.style.borderColor = c.color;
-    if (def.fillOpacity === 0) swatch.style.background = "transparent"; // 線だけのレイヤー
+    swatch.style.borderColor = strokeColor;
+
+    if (def.hatch) {
+      // 斜線ハッチ(CSSの繰り返しグラデーションで斜線を再現)
+      swatch.style.background =
+        `repeating-linear-gradient(45deg, ${fillColor} 0 1.5px, transparent 1.5px 4px)`;
+    } else if (def.frameOnly) {
+      // 枠だけ(公園=実線の枠、特別用途地区=点線の枠)
+      swatch.style.background = "transparent";
+      swatch.style.borderStyle = def.dashArray ? "dotted" : "solid";
+      swatch.style.borderColor = strokeColor;
+    } else if (def.fillOpacity === 0) {
+      // 線だけのレイヤー(都市計画区域の境界・都市計画道路)
+      swatch.style.background = strokeColor;
+    } else {
+      swatch.style.background = fillColor;
+    }
 
     const name = document.createElement("span");
     name.className = "legend-name";

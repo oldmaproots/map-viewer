@@ -28,14 +28,16 @@
         <span>地図の種類</span>
         <button id="sidebar-close" title="パネルを閉じる">✕</button>
       </div>
+      <!-- カテゴリ一覧(スクロールする主領域)。script.jsがここに生成する -->
       <div id="sidebar-body">
-        <!-- 現在表示中のレイヤー一覧(透過スライダー付き) -->
-        <div id="active-layers">
-          <h3>選択中のレイヤー</h3>
-          <div id="active-layers-list"></div>
-        </div>
-        <!-- カテゴリ一覧はscript.jsがここに生成する -->
         <div id="categories"></div>
+      </div>
+      <!-- 現在表示中のレイヤー一覧(透過スライダー・重ね順ボタン付き)。
+           地理院地図・Q地図と同じくパネルの「下部」に固定して置く。
+           項目が増えてもここだけがスクロールし、上のカテゴリ一覧は動かない。 -->
+      <div id="active-layers">
+        <h3>選択中のレイヤー</h3>
+        <div id="active-layers-list"></div>
       </div>
     </div>
 

@@ -42,6 +42,7 @@ let tsOpacity = 1;
 let tsAvailability = [];     // 各年代がこの場所で見られるか(true/false/null=未確認)
 let tsCheckTimer = null;
 let tsOnRemoved = null;      // ✕で消されたときにチェックボックスを戻すための関数
+let tsPane = null;           // この写真レイヤー専用の描画面(重ね順の変更に使う)
 
 const tsPanel = document.getElementById("timeseries-panel");
 const tsSlider = document.getElementById("timeseries-slider");
@@ -82,6 +83,7 @@ function tsShowLayer() {
     maxZoom: 20,
     opacity: tsOpacity,
     attribution: GSI_PHOTO_ATTRIBUTION,
+    pane: tsPane,                // 専用ペインに描く(重ね順の変更に対応)
   });
   tsLayer.addTo(tsMap);
   tsUpdateLabel();
@@ -138,6 +140,7 @@ function tsUpdateZoomNote() {
 function enableTimeseries(onRemoved) {
   tsEnabled = true;
   tsOnRemoved = onRemoved;
+  tsPane = ensureLayerPane("timeseries"); // 専用ペインを用意(重ね順の変更に使う)
   tsAvailability = TIMESERIES_ERAS.map(() => null);
   tsPanel.classList.add("visible");
   tsSlider.max = TIMESERIES_ERAS.length - 1;

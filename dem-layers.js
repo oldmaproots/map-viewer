@@ -307,7 +307,8 @@ const DemLayer = L.GridLayer.extend({
 });
 
 // 使いやすい作成関数
-function createDemLayer(sourceKey, mode, params) {
+// paneName … このレイヤー専用の描画面(重ね順の変更に使う)。script.jsが渡す。
+function createDemLayer(sourceKey, mode, params, paneName) {
   const source = DEM_SOURCES[sourceKey];
   return new DemLayer({
     source,
@@ -315,5 +316,6 @@ function createDemLayer(sourceKey, mode, params) {
     params: params || null,
     maxZoom: 20,
     attribution: source.attribution,
+    pane: paneName,
   });
 }
