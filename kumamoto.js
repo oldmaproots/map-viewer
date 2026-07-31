@@ -15,26 +15,61 @@ const KUMAMOTO_DATA_BASE = "data/kumamoto/";
 const KUMAMOTO_ATTRIBUTION =
   '都市計画データ: <a href="https://nlftp.mlit.go.jp/ksj/" target="_blank">国土数値情報(国土交通省)</a>を加工して作成';
 
-// 区域区分・用途地域などの名称ごとの色分け(02プロジェクトと同じ配色)
+// ---- 用途地域の色（都市計画総括図の公式凡例に準拠） ----
+// 熊本県の都市計画総括図の凡例（用途地域凡例.pdf）から実測した色をそのまま使う。
+// 並べた順番が、そのまま凡例に表示する順番になる（住居系→商業系→工業系）。
+const YOUTO_CHIIKI_FILL = {
+  第１種低層住居専用地域: "#95C5C7", // 青緑
+  第２種低層住居専用地域: "#C8E8E7", // うすい青緑
+  第１種中高層住居専用地域: "#B6D48E", // 黄緑
+  第２種中高層住居専用地域: "#E0F3DF", // うすい黄緑
+  第１種住居地域: "#FAF3AF", // 黄
+  第２種住居地域: "#F3DEC9", // うすい黄
+  準住居地域: "#F5CEA3", // 橙
+  田園住居地域: "#C8A55D", // うすい茶（熊本県内に指定なし。将来のために用意）
+  近隣商業地域: "#FCE8F3", // 桃
+  商業地域: "#F6C4C7", // 赤
+  準工業地域: "#C4C5E1", // 紫
+  工業地域: "#CBEBF8", // 水色
+  工業専用地域: "#67C2EE", // 青
+};
+
+// 色を暗くする。境界線の色を塗りつぶし色から自動で作るために使う
+// （公式凡例は塗りつぶし色しか決めていないため）。
+function darkenColor(hex, ratio) {
+  const n = parseInt(hex.slice(1), 16);
+  return (
+    "#" +
+    [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+      .map((v) => Math.round(v * ratio).toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
+// 区域区分・防火地域などの色分け（用途地域以外は従来どおり）
 const KUMAMOTO_CATEGORY_COLORS = {
   市街化区域: { color: "#d94b3f", fillColor: "#f2a89e" },
   市街化調整区域: { color: "#3f7fd9", fillColor: "#a9c8f2" },
-  第１種低層住居専用地域: { color: "#2f7d32", fillColor: "#bfe3b4" },
-  第２種低層住居専用地域: { color: "#4f9d4f", fillColor: "#cdeccb" },
-  第１種中高層住居専用地域: { color: "#5a8f3c", fillColor: "#d3e8bf" },
-  第２種中高層住居専用地域: { color: "#7ba648", fillColor: "#e0edc9" },
-  第１種住居地域: { color: "#c9a227", fillColor: "#f2e3a3" },
-  第２種住居地域: { color: "#d9b23f", fillColor: "#f5ecc0" },
-  準住居地域: { color: "#d9c23f", fillColor: "#f5efc0" },
-  田園住居地域: { color: "#8fae3f", fillColor: "#e3edc0" },
-  近隣商業地域: { color: "#e08a2b", fillColor: "#f7cfa0" },
-  商業地域: { color: "#d94b3f", fillColor: "#f2a89e" },
-  準工業地域: { color: "#a15fc9", fillColor: "#dfc3f2" },
-  工業地域: { color: "#6b5fc9", fillColor: "#c8c3f2" },
-  工業専用地域: { color: "#3f4fc9", fillColor: "#b8c0f2" },
   防火地域: { color: "#b3271e", fillColor: "#e8a29c" },
   準防火地域: { color: "#d98c1f", fillColor: "#f2d19c" },
 };
+
+// 用途地域を上の表に流し込む（塗りつぶしは公式色、境界線はそれを暗くした色）
+Object.entries(YOUTO_CHIIKI_FILL).forEach(([name, fill]) => {
+  KUMAMOTO_CATEGORY_COLORS[name] = { color: darkenColor(fill, 0.55), fillColor: fill };
+});
+
+// 凡例に並べる順番。用途地域は公式凡例の順、それ以外は五十音順にする
+const YOUTO_CHIIKI_ORDER = Object.keys(YOUTO_CHIIKI_FILL);
+
+function compareLegendItems(a, b) {
+  const ia = YOUTO_CHIIKI_ORDER.indexOf(a);
+  const ib = YOUTO_CHIIKI_ORDER.indexOf(b);
+  if (ia >= 0 && ib >= 0) return ia - ib; // どちらも用途地域 → 公式凡例の順
+  if (ia >= 0) return -1; // 用途地域を先に
+  if (ib >= 0) return 1;
+  return a.localeCompare(b, "ja");
+}
 
 const KUMAMOTO_FALLBACK_PALETTE = [
   { color: "#888888", fillColor: "#cccccc" },
@@ -51,8 +86,9 @@ const KUMAMOTO_LAYER_DEFS = [
     categoryFields: [], fillOpacity: 0, weight: 3, dashArray: "10 6", color: "#283593" },
   { key: "kuiki_kubun", file: "kuiki_kubun.geojson", label: "区域区分(市街化区域・調整区域)",
     categoryFields: ["AreaType"], fillOpacity: 0.35 },
+  // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る
   { key: "youto_chiiki", file: "youto_chiiki.geojson", label: "用途地域",
-    categoryFields: ["YoutoName", "AreaType"], fillOpacity: 0.45 },
+    categoryFields: ["YoutoName", "AreaType"], fillOpacity: 0.7 },
   { key: "bouka_chiiki", file: "bouka_chiiki.geojson", label: "防火地域・準防火地域",
     categoryFields: ["AreaType"], fillOpacity: 0.35 },
   { key: "chiku_keikaku", file: "chiku_keikaku.geojson", label: "地区計画",
@@ -141,7 +177,7 @@ function ensureKumamotoLayer(def) {
       // 凡例に並べる項目名の一覧を集めておく(データに実際に出てくる種別)
       const names = new Set();
       geojson.features.forEach((f) => names.add(kumamotoItemName(def, f)));
-      def._itemNames = [...names].sort((a, b) => a.localeCompare(b, "ja"));
+      def._itemNames = [...names].sort(compareLegendItems);
 
       def._layer = L.geoJSON(geojson, {
         renderer: kumamotoRenderer,
