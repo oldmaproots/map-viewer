@@ -1,7 +1,9 @@
 // ============================================================
 // 都市計画図 > 熊本県
 // 02KumamotoCityPlanning プロジェクトで作った熊本県の都市計画データ
-// (国土数値情報 A55 をGeoJSON化したもの)を表示する。
+// (国土交通省の都市計画決定GISデータ・令和7年度)を表示する。
+// 元データは市町村ごと・種類ごとに分かれているので、
+// scripts/build_kumamoto_data.py で種類ごとに1ファイルへまとめてある。
 // データは data/kumamoto/ にコピーしてあり、
 // チェックを入れたときに初めて読み込む(遅延読み込み)。
 //
@@ -13,7 +15,8 @@
 
 const KUMAMOTO_DATA_BASE = "data/kumamoto/";
 const KUMAMOTO_ATTRIBUTION =
-  '都市計画データ: <a href="https://nlftp.mlit.go.jp/ksj/" target="_blank">国土数値情報(国土交通省)</a>を加工して作成';
+  '都市計画データ: <a href="https://www.mlit.go.jp/toshi/tosiko/toshi_tosiko_tk_000087.html" target="_blank">' +
+  '都市計画決定GISデータ(国土交通省)令和7年度</a>を加工して作成';
 
 // ---- 用途地域の色（都市計画総括図の公式凡例に準拠） ----
 // 熊本県の都市計画総括図の凡例（用途地域凡例.pdf）から実測した色をそのまま使う。
@@ -108,6 +111,9 @@ const KUMAMOTO_LAYER_DEFS = [
   // 都市計画区域の境界は公式凡例では「黒の一点鎖線」。dashArrayで一点鎖線を再現する
   { key: "toshikeikaku_kuiki", file: "toshikeikaku_kuiki.geojson", label: "都市計画区域(境界)",
     categoryFields: [], fillOpacity: 0, weight: 2, dashArray: "14 5 2 5", color: "#333333" },
+  // 準都市計画区域も公式凡例では一点鎖線。都市計画区域と見分けがつくよう細く薄くする
+  { key: "jun_toshikeikaku_kuiki", file: "jun_toshikeikaku_kuiki.geojson", label: "準都市計画区域(境界)",
+    categoryFields: [], fillOpacity: 0, weight: 1.5, dashArray: "8 4 2 4", color: "#666666" },
   { key: "kuiki_kubun", file: "kuiki_kubun.geojson", label: "区域区分(市街化区域・調整区域)",
     categoryFields: ["AreaType"], fillOpacity: 0.35 },
   // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る

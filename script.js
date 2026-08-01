@@ -487,7 +487,8 @@ function addSourceNote(container, html) {
 
   addSourceNote(
     sub,
-    '<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank">国土数値情報(国土交通省)</a>の都市計画決定情報を加工して作成。' +
+    '<a href="https://www.mlit.go.jp/toshi/tosiko/toshi_tosiko_tk_000087.html" target="_blank">' +
+    "都市計画決定GISデータ(国土交通省)令和7年度</a>を加工して作成。" +
     "表示中に地図をクリックすると、その地点の区域名を表示します。"
   );
 
