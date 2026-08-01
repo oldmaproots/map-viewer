@@ -55,10 +55,20 @@ function darkenColor(hex, ratio) {
 //    「熊本県 都市計画総括図の凡例（令和2年2月）」の色をPDFから実測して合わせた。
 //    ※斜線ハッチや点線枠での表現は各レイヤー定義（KUMAMOTO_LAYER_DEFS）側の
 //      hatch / frameOnly といった目印で切り替える。ここでは色だけを決める。
+// 区域区分の5区分。公式凡例の色見本から実測した値。
+// 並べた順番が、そのまま凡例に表示する順番になる。
+//   市街化区域・市街化調整区域 … 線引きしている都市計画区域
+//   用途指定区域・用途指定区域外 … 線引きしていない都市計画区域を用途地域の有無で分けたもの
+//   全域用途未指定区域 … 用途地域が1つも定められていない都市計画区域
+const KUIKI_KUBUN_FILL = {
+  市街化区域: "#F09CAE",          // 濃い桃
+  市街化調整区域: "#F7D5DD",      // 淡い桃
+  用途指定区域: "#CAAF94",        // 茶
+  用途指定区域外: "#EBDBC1",      // 薄い茶
+  全域用途未指定区域: "#D1CDE6",  // 薄い紫
+};
+
 const KUMAMOTO_CATEGORY_COLORS = {
-  // 区域区分（公式凡例に無いため従来の色のまま。ユーザー確認済み）
-  市街化区域: { color: "#d94b3f", fillColor: "#f2a89e" },
-  市街化調整区域: { color: "#3f7fd9", fillColor: "#a9c8f2" },
   // 防火地域・準防火地域（公式凡例の斜線ハッチ。fillColor=斜線の色、color=枠線）
   防火地域: { color: "#6f6c9c", fillColor: "#8c89b8" },   // 灰紫
   準防火地域: { color: "#d05f9c", fillColor: "#e27bb0" }, // 桃
@@ -74,20 +84,26 @@ const KUMAMOTO_CATEGORY_COLORS = {
   墓園: { color: "#2e8b57", fillColor: "#2e8b57" },
 };
 
-// 用途地域を上の表に流し込む（塗りつぶしは公式色、境界線はそれを暗くした色）
-Object.entries(YOUTO_CHIIKI_FILL).forEach(([name, fill]) => {
-  KUMAMOTO_CATEGORY_COLORS[name] = { color: darkenColor(fill, 0.55), fillColor: fill };
+// 用途地域と区域区分を上の表に流し込む（塗りつぶしは公式色、境界線はそれを暗くした色）
+[YOUTO_CHIIKI_FILL, KUIKI_KUBUN_FILL].forEach((table) => {
+  Object.entries(table).forEach(([name, fill]) => {
+    KUMAMOTO_CATEGORY_COLORS[name] = { color: darkenColor(fill, 0.55), fillColor: fill };
+  });
 });
 
-// 凡例に並べる順番。用途地域は公式凡例の順、それ以外は五十音順にする
+// 凡例に並べる順番。用途地域と区域区分は公式凡例の順、それ以外は五十音順にする
 const YOUTO_CHIIKI_ORDER = Object.keys(YOUTO_CHIIKI_FILL);
+const KUIKI_KUBUN_ORDER = Object.keys(KUIKI_KUBUN_FILL);
 
 function compareLegendItems(a, b) {
-  const ia = YOUTO_CHIIKI_ORDER.indexOf(a);
-  const ib = YOUTO_CHIIKI_ORDER.indexOf(b);
-  if (ia >= 0 && ib >= 0) return ia - ib; // どちらも用途地域 → 公式凡例の順
-  if (ia >= 0) return -1; // 用途地域を先に
-  if (ib >= 0) return 1;
+  // 公式凡例で順番が決まっているものは、その順に並べる
+  for (const order of [YOUTO_CHIIKI_ORDER, KUIKI_KUBUN_ORDER]) {
+    const ia = order.indexOf(a);
+    const ib = order.indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib; // どちらも同じ表にある → 公式凡例の順
+    if (ia >= 0) return -1;                 // 表にあるものを先に
+    if (ib >= 0) return 1;
+  }
   return a.localeCompare(b, "ja");
 }
 
@@ -121,7 +137,10 @@ const KUMAMOTO_LAYER_DEFS = [
   // 点の数で見分ける決まりなので、太さや色は都市計画区域とそろえる
   { key: "jun_toshikeikaku_kuiki", file: "jun_toshikeikaku_kuiki.geojson", label: "準都市計画区域(境界)",
     categoryFields: [], fillOpacity: 0, defaultOpacity: 1, weight: 2, dashArray: "14 5 2 5 2 5", color: "#333333" },
-  { key: "kuiki_kubun", file: "kuiki_kubun.geojson", label: "区域区分(市街化区域・調整区域)",
+  // 区域区分は公式凡例に合わせて5区分。市街化区域・市街化調整区域は元データそのままだが、
+  // 用途指定区域・用途指定区域外・全域用途未指定区域は元データに無いため
+  // scripts/build_kuiki_kubun5.py が都市計画区域・用途地域から計算して作っている
+  { key: "kuiki_kubun", file: "kuiki_kubun5.geojson", label: "区域区分",
     categoryFields: ["AreaType"], fillOpacity: 1, defaultOpacity: 0.35 },
   // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る
   { key: "youto_chiiki", file: "youto_chiiki.geojson", label: "用途地域",
