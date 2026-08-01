@@ -23,7 +23,7 @@
 | `timeseries.js` | 年代別写真の時系列スライダー |
 | `kumamoto.js` | 都市計画図（熊本県）のGeoJSONレイヤー定義 |
 | `moj-style-2026-*.json` | 法務局地図のMapLibreスタイル（Q地図の定義を複製） |
-| `data/kumamoto/` | 02KumamotoCityPlanningからコピーした都市計画GeoJSON |
+| `data/kumamoto/` | 都市計画GeoJSON（`scripts/build_kumamoto_data.py`が生成） |
 
 ## 収録レイヤーと出典（2026-07-11時点）
 
