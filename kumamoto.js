@@ -111,9 +111,10 @@ const KUMAMOTO_LAYER_DEFS = [
   // 都市計画区域の境界は公式凡例では「黒の一点鎖線」。dashArrayで一点鎖線を再現する
   { key: "toshikeikaku_kuiki", file: "toshikeikaku_kuiki.geojson", label: "都市計画区域(境界)",
     categoryFields: [], fillOpacity: 0, weight: 2, dashArray: "14 5 2 5", color: "#333333" },
-  // 準都市計画区域も公式凡例では一点鎖線。都市計画区域と見分けがつくよう細く薄くする
+  // 準都市計画区域は公式凡例では「二点鎖線」(長い線→点2つ)。都市計画区域の一点鎖線と
+  // 点の数で見分ける決まりなので、太さや色は都市計画区域とそろえる
   { key: "jun_toshikeikaku_kuiki", file: "jun_toshikeikaku_kuiki.geojson", label: "準都市計画区域(境界)",
-    categoryFields: [], fillOpacity: 0, weight: 1.5, dashArray: "8 4 2 4", color: "#666666" },
+    categoryFields: [], fillOpacity: 0, weight: 2, dashArray: "14 5 2 5 2 5", color: "#333333" },
   { key: "kuiki_kubun", file: "kuiki_kubun.geojson", label: "区域区分(市街化区域・調整区域)",
     categoryFields: ["AreaType"], fillOpacity: 0.35 },
   // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る
