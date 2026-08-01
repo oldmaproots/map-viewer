@@ -509,6 +509,22 @@ function addSourceNote(container, html) {
       (paneName) => ensureKumamotoLayer(def, paneName),
       def.defaultOpacity // 透過スライダーの初期位置(レイヤーごとのちょうどよい濃さ)
     );
+
+    // 用途地域のすぐ下に、容積率・建ぺい率の丸印の切り替えを置く
+    if (def.key === "youto_chiiki") {
+      buildLayerRow(
+        sub,
+        "youto-circles",
+        "└ 容積率・建ぺい率(丸印)",
+        (paneName) => createYoutoCircleLayer(paneName)
+      );
+      addSourceNote(
+        sub,
+        "丸印は上から順に「容積率／用途地域の略称／建ぺい率」。ズーム15以上で表示されます。" +
+        "第１種住居・第２種住居・準住居・準工業・工業地域の200/60は、" +
+        "公式凡例の決まりにより省略しています。"
+      );
+    }
   });
 })();
 

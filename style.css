@@ -360,6 +360,59 @@ label.layer-row:hover {
   outline: 2px solid #2b5797;
 }
 
+/* ---- 容積率・建ぺい率の丸印 ---- */
+/* 都市計画図の決まりに合わせて、円を三段に分け
+   上＝容積率 / 中＝用途地域の略称 / 下＝建ぺい率 と書く。
+   中段の上下に線を引くことで、円が三分割されて見える。 */
+.youto-circle-icon {
+  background: none;
+  border: none;
+}
+
+.youto-circle {
+  /* 大きさと文字の大きさは、容積率が3桁(150・200・400など)でも
+     円からはみ出さないように決めてある。変えるときは
+     上段の文字幅と、その高さでの円の内幅を比べて確かめること。 */
+  width: 58px;   /* youto-circles.js の YOUTO_CIRCLE_SIZE と合わせる */
+  height: 58px;
+  border-radius: 50%;
+  border: 1px solid rgba(60, 50, 40, 0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: "Meiryo", sans-serif;
+  color: #3a3228;
+  /* 地図の色の上でも読めるよう、文字のまわりを白くふちどる */
+  text-shadow:
+     1px 0 0 rgba(255, 255, 255, 0.85), -1px 0 0 rgba(255, 255, 255, 0.85),
+     0 1px 0 rgba(255, 255, 255, 0.85), 0 -1px 0 rgba(255, 255, 255, 0.85);
+  pointer-events: none; /* 地図のクリックを妨げない */
+  box-sizing: border-box;
+}
+
+.youto-circle > span {
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.youto-circle .youto-far,
+.youto-circle .youto-bcr {
+  font-size: 12px;
+}
+
+/* 中段。上下の線が円を三分割する見た目を作る。
+   幅を狭めているのは、線を円の弦(端まで届かない線)に見せるため */
+.youto-circle .youto-abbr {
+  font-size: 11px;
+  width: 72%;
+  text-align: center;
+  border-top: 1px solid rgba(60, 50, 40, 0.75);
+  border-bottom: 1px solid rgba(60, 50, 40, 0.75);
+  padding: 1px 0;
+  margin: 1px 0;
+}
+
 /* ---- 設定画面(⚙ボタンで開く) ---- */
 #sidebar-header .header-btns {
   display: flex;
