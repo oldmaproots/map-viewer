@@ -420,6 +420,24 @@ label.layer-row:hover {
   flex-shrink: 0;
 }
 
+/* 「縁だけ斜線」で描くレイヤーの見本。地図と同じく枠状に見せる。
+   maskは「どこを見せるか」を指定する機能。
+   ・内側(content-box)だけを指す指定 と ・全体(border-box)を指す指定 を
+   exclude(差し引き)で重ねると、内側がくり抜かれて枠だけが残る。
+   maskに対応していない古いブラウザでは、単に全面が斜線になるだけで表示は崩れない。 */
+.legend-swatch-frame {
+  width: 22px;
+  height: 16px;
+  padding: 3px;          /* この幅が斜線の帯の太さになる */
+  box-sizing: border-box;
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
+  mask-composite: exclude;
+}
+
 .legend-name {
   overflow: hidden;
   white-space: nowrap;

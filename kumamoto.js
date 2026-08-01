@@ -99,7 +99,9 @@ const KUMAMOTO_FALLBACK_PALETTE = [
 
 // 表示できるレイヤーの一覧(02プロジェクトのv2と同じ内容)
 //  スタイルの目印(公式凡例に合わせるために追加した項目):
-//    hatch:true     … 塗りつぶしを斜線ハッチにする（防火・風致・特定用途制限・地区計画）
+//    hatch:true     … 縁を斜線ハッチで縁取りする（防火・風致・特定用途制限・地区計画）
+//    hatchDir       … 斜線の向き。"/"=右上がり、"\\"=右下がり。省略すると"/"。
+//                     公式凡例の見本から実測した向きに合わせている（下の各行のコメント参照）
 //    frameOnly:true … 塗りつぶさず枠線だけにする（公園=緑の枠、特別用途地区=点線の枠）
 //    color/fillColor… レイヤー全体で色を1つに固定する（種別ごとに分けない）ときに指定
 const KUMAMOTO_LAYER_DEFS = [
@@ -111,19 +113,19 @@ const KUMAMOTO_LAYER_DEFS = [
   // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る
   { key: "youto_chiiki", file: "youto_chiiki.geojson", label: "用途地域",
     categoryFields: ["YoutoName", "AreaType"], fillOpacity: 0.7 },
-  // 防火・準防火地域は公式凡例では斜線ハッチ。種別(AreaType)ごとに灰紫/桃で塗り分ける
+  // 防火・準防火地域は公式凡例では「右下がり」の斜線。種別(AreaType)ごとに灰紫/桃で塗り分ける
   { key: "bouka_chiiki", file: "bouka_chiiki.geojson", label: "防火地域・準防火地域",
-    categoryFields: ["AreaType"], fillOpacity: 0.85, weight: 1, hatch: true },
-  // 地区計画は公式凡例では1つの茶色の斜線ハッチ。区域名では色分けせず1色にする
+    categoryFields: ["AreaType"], fillOpacity: 0.85, weight: 1, hatch: true, hatchDir: "\\" },
+  // 地区計画は公式凡例では1つの茶色の「右上がり」の斜線。区域名では色分けせず1色にする
   { key: "chiku_keikaku", file: "chiku_keikaku.geojson", label: "地区計画",
-    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true,
+    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true, hatchDir: "/",
     fillColor: "#b98a52", color: "#8a6330" },
   // 特別用途地区は公式凡例では色付きの点線の枠。種別ごとに色を変える
   { key: "tokubetsu_youto_chiku", file: "tokubetsu_youto_chiku.geojson", label: "特別用途地区",
     categoryFields: ["YoutoName"], fillOpacity: 0, weight: 3, frameOnly: true, dashArray: "1 5" },
-  // 特定用途制限地域は公式凡例では1つの橙色の斜線ハッチ。1色にする
+  // 特定用途制限地域は公式凡例では1つの橙色の「右上がり」の斜線。1色にする
   { key: "tokutei_youto_seigen", file: "tokutei_youto_seigen.geojson", label: "特定用途制限地域",
-    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true,
+    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true, hatchDir: "/",
     fillColor: "#e0b45a", color: "#c78a2e" },
   { key: "ricchi_tekiseika_keikaku", file: "ricchi_tekiseika_keikaku.geojson", label: "立地適正化計画区域",
     categoryFields: ["AreaType"], fillOpacity: 0.2 },
@@ -133,9 +135,9 @@ const KUMAMOTO_LAYER_DEFS = [
   // 都市計画道路は公式凡例では黒い線
   { key: "toshikeikaku_douro", file: "toshikeikaku_douro.geojson", label: "都市計画道路",
     categoryFields: [], fillOpacity: 0, weight: 2, color: "#333333" },
-  // 風致地区は公式凡例では緑の斜線ハッチ
+  // 風致地区は公式凡例では緑の「右下がり」の斜線
   { key: "fuuchi_chiku", file: "fuuchi_chiku.geojson", label: "風致地区",
-    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true,
+    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true, hatchDir: "\\",
     fillColor: "#67b698", color: "#3f8f6d" },
   { key: "koudo_riyou_chiku", file: "koudo_riyou_chiku.geojson", label: "高度利用地区",
     categoryFields: [], fillOpacity: 0.3 },
@@ -156,12 +158,18 @@ const KUMAMOTO_LAYER_DEFS = [
 // タイルは色ごとにキャッシュして使い回すので動作は軽い。
 // ============================================================
 
-// 斜線タイル(オフスクリーンcanvas)を色ごとに覚えておく入れ物
-const hatchTileCache = new Map(); // 色(文字列) -> 8×8のcanvas
+// 縁取りの帯の幅(画面上のピクセル)。ズームしても一定の太さになる
+const HATCH_BAND_WIDTH = 12;
 
-// 指定色の斜線タイルを1枚作る(または使い回す)
-function getHatchTile(color) {
-  if (hatchTileCache.has(color)) return hatchTileCache.get(color);
+// 斜線タイル(オフスクリーンcanvas)を「色＋向き」ごとに覚えておく入れ物
+const hatchTileCache = new Map(); // "色|向き" -> 8×8のcanvas
+
+// 指定色・指定の向きの斜線タイルを1枚作る(または使い回す)
+//   dir "/"  … 右上がり(左下から右上へ)
+//   dir "\\" … 右下がり(左上から右下へ)
+function getHatchTile(color, dir) {
+  const key = `${color}|${dir}`;
+  if (hatchTileCache.has(key)) return hatchTileCache.get(key);
   const size = 8;
   const tile = document.createElement("canvas");
   tile.width = size;
@@ -169,34 +177,71 @@ function getHatchTile(color) {
   const c = tile.getContext("2d");
   c.strokeStyle = color;
   c.lineWidth = 1.5;
-  // 右上がりの斜線。タイルの継ぎ目でも線がつながるよう、角の外側にもはみ出して引く
+  // タイルの継ぎ目でも線がつながるよう、角の外側にもはみ出して引く
   c.beginPath();
-  c.moveTo(0, size); c.lineTo(size, 0);
-  c.moveTo(-size, size); c.lineTo(size, -size);
-  c.moveTo(0, size * 2); c.lineTo(size * 2, 0);
+  if (dir === "\\") {
+    // 右下がり: 左上(0,0)から右下(size,size)へ
+    c.moveTo(0, 0); c.lineTo(size, size);
+    c.moveTo(-size, 0); c.lineTo(size, size * 2);
+    c.moveTo(0, -size); c.lineTo(size * 2, size);
+  } else {
+    // 右上がり: 左下(0,size)から右上(size,0)へ
+    c.moveTo(0, size); c.lineTo(size, 0);
+    c.moveTo(-size, size); c.lineTo(size, -size);
+    c.moveTo(0, size * 2); c.lineTo(size * 2, 0);
+  }
   c.stroke();
-  hatchTileCache.set(color, tile);
+  hatchTileCache.set(key, tile);
   return tile;
 }
 
-// L.Canvasを継承し、hatch:true のときだけ塗りを斜線パターンに差し替える。
+// canvasごとに作った塗りパターンを覚えておく(図形のたびに作り直さないため)
+const hatchPatternCache = new WeakMap(); // ctx -> Map("色|向き" -> CanvasPattern)
+
+function getHatchPattern(ctx, color, dir) {
+  let perCtx = hatchPatternCache.get(ctx);
+  if (!perCtx) {
+    perCtx = new Map();
+    hatchPatternCache.set(ctx, perCtx);
+  }
+  const key = `${color}|${dir}`;
+  if (!perCtx.has(key)) {
+    perCtx.set(key, ctx.createPattern(getHatchTile(color, dir), "repeat"));
+  }
+  return perCtx.get(key);
+}
+
+// L.Canvasを継承し、hatch:true のときだけ「縁を斜線で縁取りする」描き方に差し替える。
 // それ以外はLeaflet 1.9.4の元の _fillStroke とまったく同じ挙動にしてある。
+//
+// 縁取りの作り方(公式総括図と同じ、中は塗らない表現):
+//   1. ctx.clip() で「この図形の内側」だけを描画対象に限定する
+//   2. その状態で図形の輪郭を、とても太い線(帯の幅の2倍)でなぞる
+//   3. 太い線の外半分はclipで消えるので、内側にだけ帯が残る
+// 図形より帯のほうが太い小さな区域は、そのまま全体が斜線になる(消えない)。
 const HatchCanvas = L.Canvas.extend({
   _fillStroke(ctx, layer) {
     const options = layer.options;
 
     if (options.fill) {
-      ctx.globalAlpha = options.fillOpacity;
       if (options.hatch) {
-        // 斜線タイルを敷き詰めて塗る
-        ctx.fillStyle = ctx.createPattern(
-          getHatchTile(options.hatchColor || options.fillColor || options.color),
-          "repeat"
+        ctx.save();
+        ctx.globalAlpha = options.fillOpacity;
+        ctx.clip(options.fillRule || "evenodd"); // 図形の内側だけに描く(穴あきにも対応)
+        ctx.strokeStyle = getHatchPattern(
+          ctx,
+          options.hatchColor || options.fillColor || options.color,
+          options.hatchDir || "/"
         );
+        ctx.lineWidth = HATCH_BAND_WIDTH * 2; // 外半分はclipで捨てられる
+        ctx.setLineDash([]);                  // 帯は実線でなぞる(輪郭の破線設定を引きずらない)
+        ctx.stroke();
+        ctx.restore();                        // clipと透明度を元に戻す
       } else {
+        ctx.globalAlpha = options.fillOpacity;
         ctx.fillStyle = options.fillColor || options.color;
+        ctx.fill(options.fillRule || "evenodd");
       }
-      ctx.fill(options.fillRule || "evenodd");
     }
 
     if (options.stroke && options.weight !== 0) {
@@ -277,9 +322,10 @@ function computeKumamotoStyle(def, feature) {
     dashArray: def.dashArray,
     // frameOnly(枠だけ)のレイヤーは塗らない
     fillOpacity: def.frameOnly ? 0 : def.fillOpacity,
-    // 自作HatchCanvasレンダラーが読む目印。斜線で塗るかどうかと、その色
+    // 自作HatchCanvasレンダラーが読む目印。斜線で縁取りするか、その色と向き
     hatch: !!def.hatch,
     hatchColor: fillColor,
+    hatchDir: def.hatchDir || "/",
   };
 }
 
@@ -418,9 +464,13 @@ function buildLegendSection(def) {
     swatch.style.borderColor = strokeColor;
 
     if (def.hatch) {
-      // 斜線ハッチ(CSSの繰り返しグラデーションで斜線を再現)
+      // 地図と同じ「縁だけ斜線」を小さな見本でも再現する。
+      // CSSの角度は、45deg で右下がり「\」、-45deg で右上がり「/」になる
+      // (グラデーションの軸と縞は直角の関係にあるため、見た目は逆向きになる)。
+      const angle = (def.hatchDir === "\\") ? "45deg" : "-45deg";
+      swatch.classList.add("legend-swatch-frame");
       swatch.style.background =
-        `repeating-linear-gradient(45deg, ${fillColor} 0 1.5px, transparent 1.5px 4px)`;
+        `repeating-linear-gradient(${angle}, ${fillColor} 0 1.5px, transparent 1.5px 4px)`;
     } else if (def.frameOnly) {
       // 枠だけ(公園=実線の枠、特別用途地区=点線の枠)
       swatch.style.background = "transparent";
