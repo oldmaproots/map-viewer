@@ -100,56 +100,63 @@ const KUMAMOTO_FALLBACK_PALETTE = [
   { color: "#c91f5f", fillColor: "#f2a7c3" },
 ];
 
-// 表示できるレイヤーの一覧(02プロジェクトのv2と同じ内容)
+// 表示できるレイヤーの一覧
 //  スタイルの目印(公式凡例に合わせるために追加した項目):
 //    hatch:true     … 縁を斜線ハッチで縁取りする（防火・風致・特定用途制限・地区計画）
 //    hatchDir       … 斜線の向き。"/"=右上がり、"\\"=右下がり。省略すると"/"。
 //                     公式凡例の見本から実測した向きに合わせている（下の各行のコメント参照）
 //    frameOnly:true … 塗りつぶさず枠線だけにする（公園=緑の枠、特別用途地区=点線の枠）
 //    color/fillColor… レイヤー全体で色を1つに固定する（種別ごとに分けない）ときに指定
+//
+//  濃さについて:
+//    塗りつぶし自体は不透明(fillOpacity:1)にしておき、見た目の濃さは
+//    defaultOpacity（透過スライダーの初期位置）で作る。
+//    こうするとスライダーを一番右にしたとき「完全に透けていない」状態になる。
+//    線だけ・枠だけのレイヤーは薄める必要がないので defaultOpacity は 1。
 const KUMAMOTO_LAYER_DEFS = [
   // 都市計画区域の境界は公式凡例では「黒の一点鎖線」。dashArrayで一点鎖線を再現する
   { key: "toshikeikaku_kuiki", file: "toshikeikaku_kuiki.geojson", label: "都市計画区域(境界)",
-    categoryFields: [], fillOpacity: 0, weight: 2, dashArray: "14 5 2 5", color: "#333333" },
+    categoryFields: [], fillOpacity: 0, defaultOpacity: 1, weight: 2, dashArray: "14 5 2 5", color: "#333333" },
   // 準都市計画区域は公式凡例では「二点鎖線」(長い線→点2つ)。都市計画区域の一点鎖線と
   // 点の数で見分ける決まりなので、太さや色は都市計画区域とそろえる
   { key: "jun_toshikeikaku_kuiki", file: "jun_toshikeikaku_kuiki.geojson", label: "準都市計画区域(境界)",
-    categoryFields: [], fillOpacity: 0, weight: 2, dashArray: "14 5 2 5 2 5", color: "#333333" },
+    categoryFields: [], fillOpacity: 0, defaultOpacity: 1, weight: 2, dashArray: "14 5 2 5 2 5", color: "#333333" },
   { key: "kuiki_kubun", file: "kuiki_kubun.geojson", label: "区域区分(市街化区域・調整区域)",
-    categoryFields: ["AreaType"], fillOpacity: 0.35 },
+    categoryFields: ["AreaType"], fillOpacity: 1, defaultOpacity: 0.35 },
   // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る
   { key: "youto_chiiki", file: "youto_chiiki.geojson", label: "用途地域",
-    categoryFields: ["YoutoName", "AreaType"], fillOpacity: 0.7 },
-  // 防火・準防火地域は公式凡例では「右下がり」の斜線。種別(AreaType)ごとに灰紫/桃で塗り分ける
+    categoryFields: ["YoutoName", "AreaType"], fillOpacity: 1, defaultOpacity: 0.7 },
+  // 防火・準防火地域は公式凡例では「右下がり」の斜線。種別(AreaType)ごとに灰紫/桃で塗り分ける。
+  // 細い斜線なので薄めると見えにくい。既定では透けさせない
   { key: "bouka_chiiki", file: "bouka_chiiki.geojson", label: "防火地域・準防火地域",
-    categoryFields: ["AreaType"], fillOpacity: 0.85, weight: 1, hatch: true, hatchDir: "\\" },
+    categoryFields: ["AreaType"], fillOpacity: 1, defaultOpacity: 1, weight: 1, hatch: true, hatchDir: "\\" },
   // 地区計画は公式凡例では1つの茶色の「右上がり」の斜線。区域名では色分けせず1色にする
   { key: "chiku_keikaku", file: "chiku_keikaku.geojson", label: "地区計画",
-    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true, hatchDir: "/",
+    categoryFields: [], fillOpacity: 1, defaultOpacity: 0.85, weight: 1, hatch: true, hatchDir: "/",
     fillColor: "#b98a52", color: "#8a6330" },
   // 特別用途地区は公式凡例では色付きの点線の枠。種別ごとに色を変える
   { key: "tokubetsu_youto_chiku", file: "tokubetsu_youto_chiku.geojson", label: "特別用途地区",
-    categoryFields: ["YoutoName"], fillOpacity: 0, weight: 3, frameOnly: true, dashArray: "1 5" },
+    categoryFields: ["YoutoName"], fillOpacity: 0, defaultOpacity: 1, weight: 3, frameOnly: true, dashArray: "1 5" },
   // 特定用途制限地域は公式凡例では1つの橙色の「右上がり」の斜線。1色にする
   { key: "tokutei_youto_seigen", file: "tokutei_youto_seigen.geojson", label: "特定用途制限地域",
-    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true, hatchDir: "/",
+    categoryFields: [], fillOpacity: 1, defaultOpacity: 0.85, weight: 1, hatch: true, hatchDir: "/",
     fillColor: "#e0b45a", color: "#c78a2e" },
   { key: "ricchi_tekiseika_keikaku", file: "ricchi_tekiseika_keikaku.geojson", label: "立地適正化計画区域",
-    categoryFields: ["AreaType"], fillOpacity: 0.2 },
+    categoryFields: ["AreaType"], fillOpacity: 1, defaultOpacity: 0.2 },
   // 公園・緑地・墓園は公式凡例では緑の枠線。塗らずに枠だけにする
   { key: "toshikeikaku_koen", file: "toshikeikaku_koen.geojson", label: "都市計画公園・緑地",
-    categoryFields: ["ParkType"], fillOpacity: 0, weight: 2, frameOnly: true },
+    categoryFields: ["ParkType"], fillOpacity: 0, defaultOpacity: 1, weight: 2, frameOnly: true },
   // 都市計画道路は公式凡例では黒い線
   { key: "toshikeikaku_douro", file: "toshikeikaku_douro.geojson", label: "都市計画道路",
-    categoryFields: [], fillOpacity: 0, weight: 2, color: "#333333" },
+    categoryFields: [], fillOpacity: 0, defaultOpacity: 1, weight: 2, color: "#333333" },
   // 風致地区は公式凡例では緑の「右下がり」の斜線
   { key: "fuuchi_chiku", file: "fuuchi_chiku.geojson", label: "風致地区",
-    categoryFields: [], fillOpacity: 0.85, weight: 1, hatch: true, hatchDir: "\\",
+    categoryFields: [], fillOpacity: 1, defaultOpacity: 0.85, weight: 1, hatch: true, hatchDir: "\\",
     fillColor: "#67b698", color: "#3f8f6d" },
   { key: "koudo_riyou_chiku", file: "koudo_riyou_chiku.geojson", label: "高度利用地区",
-    categoryFields: [], fillOpacity: 0.3 },
+    categoryFields: [], fillOpacity: 1, defaultOpacity: 0.3 },
   { key: "tochikukaku_seiri", file: "tochikukaku_seiri.geojson", label: "土地区画整理事業",
-    categoryFields: ["DistName"], fillOpacity: 0.3 },
+    categoryFields: ["DistName"], fillOpacity: 1, defaultOpacity: 0.3 },
 ];
 
 // ============================================================
@@ -293,6 +300,56 @@ function kumamotoCategoryName(properties, categoryFields) {
   return null;
 }
 
+// ============================================================
+// 色の決め方（設定画面で好きな色に変えられるようにするための入口）
+// ------------------------------------------------------------
+// 地図の塗りと凡例の色見本は必ずここを通す。
+// 利用者が設定画面で色を変えたら kumamotoColorOverrides に入り、公式の色より優先される。
+// 変えた色はブラウザに保存され、次に開いたときも残る。
+// ============================================================
+const KUMAMOTO_COLOR_STORAGE_KEY = "map-viewer-kumamoto-colors";
+
+// "レイヤーkey::項目名" -> "#rrggbb"
+const kumamotoColorOverrides = new Map();
+
+(function loadColorOverrides() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(KUMAMOTO_COLOR_STORAGE_KEY));
+    if (saved && typeof saved === "object") {
+      Object.entries(saved).forEach(([k, v]) => kumamotoColorOverrides.set(k, v));
+    }
+  } catch (e) { /* 壊れていたら公式の色で始める */ }
+})();
+
+function saveColorOverrides() {
+  const obj = {};
+  kumamotoColorOverrides.forEach((v, k) => (obj[k] = v));
+  localStorage.setItem(KUMAMOTO_COLOR_STORAGE_KEY, JSON.stringify(obj));
+}
+
+function colorOverrideKey(def, itemName) {
+  return `${def.key}::${itemName ?? "__all__"}`;
+}
+
+// 公式凡例で決まっている色（利用者が変えていないときの色）を返す
+function officialKumamotoColors(def, itemName) {
+  if (def.color || def.fillColor) {
+    const fillColor = def.fillColor || def.color;
+    return { fillColor, color: def.color || darkenColor(fillColor, 0.7) };
+  }
+  const name = itemName === "__all__" ? null : itemName;
+  const c = kumamotoColorFor(def.key, name, KUMAMOTO_LAYER_DEFS.indexOf(def));
+  return { fillColor: c.fillColor, color: c.color };
+}
+
+// 実際に使う色を返す。利用者が設定していればそちらを優先する。
+// 塗り色を変えたときは、枠線もそれに合わせて自動で暗くする。
+function resolveKumamotoColors(def, itemName) {
+  const custom = kumamotoColorOverrides.get(colorOverrideKey(def, itemName));
+  if (custom) return { fillColor: custom, color: darkenColor(custom, 0.7) };
+  return officialKumamotoColors(def, itemName);
+}
+
 // 凡例で項目を非表示にしたときの目印。項目名がこのSetに入っていたら描かない。
 // 種別を持たないレイヤー(都市計画道路など)は「__all__」という名前で扱う。
 function kumamotoItemName(def, feature) {
@@ -306,21 +363,8 @@ function computeKumamotoStyle(def, feature) {
   if (def._hiddenItems && def._hiddenItems.has(itemName)) {
     return { opacity: 0, fillOpacity: 0 }; // 非表示(透明)
   }
-  const name = kumamotoCategoryName(feature.properties, def.categoryFields);
-  const defIndex = KUMAMOTO_LAYER_DEFS.indexOf(def);
-
-  // 色を決める。
-  //  - レイヤー全体で色を固定している場合(def.color / def.fillColor)はそれを使う
-  //  - そうでなければ種別ごとの色(公式色 or 自動割り当て)を使う
-  let strokeColor, fillColor;
-  if (def.color || def.fillColor) {
-    fillColor = def.fillColor || def.color;
-    strokeColor = def.color || darkenColor(def.fillColor, 0.7);
-  } else {
-    const c = kumamotoColorFor(def.key, name, defIndex);
-    fillColor = c.fillColor;
-    strokeColor = c.color;
-  }
+  // 色は resolveKumamotoColors にまかせる（設定画面で変えた色があればそちらが returns される）
+  const { color: strokeColor, fillColor } = resolveKumamotoColors(def, itemName);
 
   return {
     color: strokeColor,
@@ -367,6 +411,103 @@ function ensureKumamotoLayer(def, paneName) {
       throw err;
     });
   return def._loadPromise;
+}
+
+// 設定画面で色を変えたときに呼ぶ。地図と凡例を描き直す。
+//   newColor に null を渡すと、その項目を公式凡例の色に戻す。
+function setKumamotoColor(def, itemName, newColor) {
+  const key = colorOverrideKey(def, itemName);
+  if (newColor) kumamotoColorOverrides.set(key, newColor);
+  else kumamotoColorOverrides.delete(key);
+  saveColorOverrides();
+  redrawKumamotoLayer(def);
+}
+
+// 色をすべて公式凡例に戻す
+function resetKumamotoColors() {
+  kumamotoColorOverrides.clear();
+  saveColorOverrides();
+  KUMAMOTO_LAYER_DEFS.forEach(redrawKumamotoLayer);
+}
+
+// 1つのレイヤーを今の色で描き直し、凡例も作り直す
+function redrawKumamotoLayer(def) {
+  if (def._layer) {
+    def._layer.setStyle((feature) => computeKumamotoStyle(def, feature));
+  }
+  rebuildKumamotoLegend();
+}
+
+// ============================================================
+// 設定画面の「都市計画図の色」の中身を組み立てる（script.jsから呼ばれる）
+// ------------------------------------------------------------
+// どんな種別があるかはGeoJSONを読んで初めて分かるので、
+// 「今チェックが入っていて読み込み済みのレイヤー」だけを並べる。
+// ============================================================
+function buildKumamotoColorSettings(container) {
+  container.innerHTML = "";
+  const loaded = KUMAMOTO_LAYER_DEFS.filter((def) => def._layer && def._itemNames);
+
+  if (loaded.length === 0) {
+    const note = document.createElement("p");
+    note.className = "settings-note";
+    note.textContent =
+      "都市計画図のレイヤーにチェックを入れると、ここでその色を変えられるようになります。";
+    container.appendChild(note);
+    return;
+  }
+
+  loaded.forEach((def) => {
+    const box = document.createElement("div");
+    box.className = "settings-layer";
+
+    const title = document.createElement("div");
+    title.className = "settings-layer-title";
+    title.textContent = def.label;
+    box.appendChild(title);
+
+    def._itemNames.forEach((itemName) => {
+      const row = document.createElement("div");
+      row.className = "settings-color-row";
+
+      const picker = document.createElement("input");
+      picker.type = "color";
+      picker.value = resolveKumamotoColors(def, itemName).fillColor;
+      picker.title = "クリックして色を選ぶ";
+      picker.addEventListener("input", () => {
+        setKumamotoColor(def, itemName, picker.value);
+        refreshRevertButton();
+      });
+
+      const name = document.createElement("span");
+      name.className = "settings-color-name";
+      name.textContent = itemName === "__all__" ? "(全体)" : itemName;
+
+      // 公式の色から変えたときだけ「戻す」ボタンを出す
+      const revert = document.createElement("button");
+      revert.className = "settings-revert";
+      revert.textContent = "戻す";
+      revert.title = "この項目を公式凡例の色に戻す";
+      revert.addEventListener("click", () => {
+        setKumamotoColor(def, itemName, null);
+        picker.value = officialKumamotoColors(def, itemName).fillColor;
+        refreshRevertButton();
+      });
+
+      function refreshRevertButton() {
+        const changed = kumamotoColorOverrides.has(colorOverrideKey(def, itemName));
+        revert.style.display = changed ? "" : "none";
+      }
+      refreshRevertButton();
+
+      row.appendChild(picker);
+      row.appendChild(name);
+      row.appendChild(revert);
+      box.appendChild(row);
+    });
+
+    container.appendChild(box);
+  });
 }
 
 // 凡例のチェックで項目の表示/非表示を切り替える
@@ -455,17 +596,9 @@ function buildLegendSection(def) {
       setKumamotoItemVisible(def, itemName, checkbox.checked);
     });
 
-    // 色見本。地図の見た目(べた塗り/斜線ハッチ/点線枠/枠線/線)に合わせて描く
-    const defIndex = KUMAMOTO_LAYER_DEFS.indexOf(def);
-    let strokeColor, fillColor;
-    if (def.color || def.fillColor) {
-      fillColor = def.fillColor || def.color;
-      strokeColor = def.color || darkenColor(def.fillColor, 0.7);
-    } else {
-      const c = kumamotoColorFor(def.key, itemName === "__all__" ? null : itemName, defIndex);
-      fillColor = c.fillColor;
-      strokeColor = c.color;
-    }
+    // 色見本。地図の見た目(べた塗り/斜線ハッチ/点線枠/枠線/線)に合わせて描く。
+    // 色は地図と同じ resolveKumamotoColors から取るので、設定で変えると見本も一緒に変わる
+    const { color: strokeColor, fillColor } = resolveKumamotoColors(def, itemName);
     const swatch = document.createElement("span");
     swatch.className = "legend-swatch";
     swatch.style.borderColor = strokeColor;

@@ -155,13 +155,19 @@ function registerActiveLayer(id, label, handle) {
   name.textContent = label;
   name.title = label;
 
+  // 透過スライダー。
+  //  一番右(100)＝完全に不透明。
+  //  初期位置はレイヤーごとの「ちょうどよい濃さ」(handle.defaultOpacity)にする。
+  //  例: 用途地域は70%から始まるので、右へ動かせばもっと濃くできる。
   const slider = document.createElement("input");
   slider.type = "range";
   slider.min = 0;
   slider.max = 100;
-  slider.value = 100;
-  slider.title = "透過(不透明度)";
+  const startOpacity = handle.defaultOpacity ?? 1;
+  slider.value = Math.round(startOpacity * 100);
+  slider.title = "透過(右へ動かすほど濃くなる)";
   slider.addEventListener("input", () => handle.setOpacity(slider.value / 100));
+  handle.setOpacity(startOpacity); // 初期位置の濃さを地図にも反映しておく
 
   const removeBtn = document.createElement("button");
   removeBtn.className = "remove-btn";
@@ -194,7 +200,9 @@ function unregisterActiveLayer(id) {
 // Leafletレイヤー(またはPromise)を返す。
 // paneName … このレイヤー専用の描画面(重ね順の変更に使う)。各レイヤーはこれを
 //            pane オプションに渡すことで、専用ペインに描かれるようになる。
-function buildLayerRow(container, id, label, makeLayer) {
+// defaultOpacity … 透過スライダーの初期位置(0〜1)。省略すると1(=完全に不透明)。
+//                   都市計画図のように「薄く重ねたい」レイヤーだけ指定する。
+function buildLayerRow(container, id, label, makeLayer, defaultOpacity) {
   const row = document.createElement("label");
   row.className = "layer-row";
   const checkbox = document.createElement("input");
@@ -213,6 +221,7 @@ function buildLayerRow(container, id, label, makeLayer) {
       if (!checkbox.checked) return; // 読み込み中に外された
       layer.addTo(map);
       registerActiveLayer(id, label, {
+        defaultOpacity: defaultOpacity ?? 1,
         // 透過はペインごと(=このレイヤーだけ)の不透明度で調整する。
         // これならタイル・ベクトル・GeoJSONなどレイヤーの種類を問わず同じ方法で効く。
         setOpacity(v) {
@@ -493,8 +502,12 @@ function addSourceNote(container, html) {
   );
 
   KUMAMOTO_LAYER_DEFS.forEach((def) => {
-    buildLayerRow(sub, `kumamoto-${def.key}`, def.label, (paneName) =>
-      ensureKumamotoLayer(def, paneName)
+    buildLayerRow(
+      sub,
+      `kumamoto-${def.key}`,
+      def.label,
+      (paneName) => ensureKumamotoLayer(def, paneName),
+      def.defaultOpacity // 透過スライダーの初期位置(レイヤーごとのちょうどよい濃さ)
     );
   });
 })();
@@ -567,6 +580,42 @@ function setUpGoogleBaseLayers() {
   document.head.appendChild(script);
 }
 setUpGoogleBaseLayers();
+
+// ============================================================
+// 設定画面(⚙ボタン)
+// ------------------------------------------------------------
+// 開くたびに中身を作り直す。どの種別があるかは
+// レイヤーを読み込んで初めて分かるため、その時点の状態で並べ直す。
+// ============================================================
+const settingsOverlay = document.getElementById("settings-overlay");
+const settingsColors = document.getElementById("settings-colors");
+
+function openSettings() {
+  buildKumamotoColorSettings(settingsColors);
+  settingsOverlay.classList.remove("hidden");
+}
+
+function closeSettings() {
+  settingsOverlay.classList.add("hidden");
+}
+
+document.getElementById("settings-open").addEventListener("click", openSettings);
+document.getElementById("settings-close").addEventListener("click", closeSettings);
+
+// 背景の暗いところをクリックしても閉じる(中身のクリックでは閉じない)
+settingsOverlay.addEventListener("click", (e) => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+
+// Escキーでも閉じられるようにする
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !settingsOverlay.classList.contains("hidden")) closeSettings();
+});
+
+document.getElementById("settings-reset").addEventListener("click", () => {
+  resetKumamotoColors();
+  buildKumamotoColorSettings(settingsColors); // 色見本を選び直した状態に更新する
+});
 
 // ============================================================
 // サイドパネルの開閉

@@ -360,6 +360,154 @@ label.layer-row:hover {
   outline: 2px solid #2b5797;
 }
 
+/* ---- 設定画面(⚙ボタンで開く) ---- */
+#sidebar-header .header-btns {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+#settings-open {
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+  padding: 0 2px;
+}
+
+#settings-open:hover {
+  opacity: 0.7;
+}
+
+/* 画面全体を覆う半透明の背景。中央に設定の箱を置く */
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#settings-overlay.hidden {
+  display: none;
+}
+
+#settings-dialog {
+  background: white;
+  border-radius: 6px;
+  width: 460px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 48px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+#settings-header {
+  background: #2b5797;
+  color: white;
+  font-weight: bold;
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#settings-close {
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+}
+
+#settings-body {
+  padding: 10px 14px 14px;
+  overflow-y: auto;
+}
+
+#settings-body h3 {
+  margin: 6px 0 4px;
+  font-size: 13px;
+  color: #2b5797;
+}
+
+.settings-note {
+  font-size: 11px;
+  color: #666;
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+/* レイヤーごとのまとまり */
+.settings-layer {
+  margin-bottom: 10px;
+}
+
+.settings-layer-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #333;
+  border-bottom: 1px solid #ccd6e8;
+  padding-bottom: 2px;
+  margin-bottom: 4px;
+}
+
+.settings-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.settings-color-row input[type="color"] {
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #999;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-color-row .settings-color-name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 公式の色から変えた項目にだけ出る「戻す」ボタン */
+.settings-color-row .settings-revert {
+  border: none;
+  background: #eee;
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.settings-color-row .settings-revert:hover {
+  background: #dde6f5;
+}
+
+.settings-actions {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.settings-actions button {
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
 /* ---- 凡例(右下、Leafletコントロールとして表示) ---- */
 .legend-panel {
   background: rgba(255, 255, 255, 0.95);

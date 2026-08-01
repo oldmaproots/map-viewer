@@ -26,7 +26,10 @@
     <div id="sidebar">
       <div id="sidebar-header">
         <span>地図の種類</span>
-        <button id="sidebar-close" title="パネルを閉じる">✕</button>
+        <span class="header-btns">
+          <button id="settings-open" title="設定（色の変更など）">⚙</button>
+          <button id="sidebar-close" title="パネルを閉じる">✕</button>
+        </span>
       </div>
       <!-- カテゴリ一覧(スクロールする主領域)。script.jsがここに生成する -->
       <div id="sidebar-body">
@@ -47,6 +50,26 @@
 
   <!-- パネルを閉じたときに出る開くボタン -->
   <button id="sidebar-open" style="display:none">☰ 地図の種類</button>
+
+  <!-- 設定画面(⚙ボタンで開く)。ふだんは隠れている -->
+  <div id="settings-overlay" class="hidden">
+    <div id="settings-dialog">
+      <div id="settings-header">
+        <span>設定</span>
+        <button id="settings-close" title="閉じる">✕</button>
+      </div>
+      <div id="settings-body">
+        <h3>都市計画図の色</h3>
+        <p class="settings-note">
+          色をクリックすると好きな色に変えられます。変えた色はこのブラウザに保存され、次に開いたときも残ります。
+        </p>
+        <div id="settings-colors"></div>
+        <div class="settings-actions">
+          <button id="settings-reset">すべて公式凡例の色に戻す</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- 住所・地名検索(右上) -->
   <div id="search-box">
