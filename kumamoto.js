@@ -133,12 +133,25 @@ const KUMAMOTO_FALLBACK_PALETTE = [
 //    こうするとスライダーを一番右にしたとき「完全に透けていない」状態になる。
 //    線だけ・枠だけのレイヤーは薄める必要がないので defaultOpacity は 1。
 const KUMAMOTO_LAYER_DEFS = [
-  // 都市計画区域の境界は公式凡例では「黒の一点鎖線」。dashArrayで一点鎖線を再現する
-  { key: "toshikeikaku_kuiki", file: "toshikeikaku_kuiki.geojson", label: "都市計画区域(境界)",
+  // 都市計画区域の境界は公式凡例では「黒の一点鎖線」。dashArrayで一点鎖線を再現する。
+  //
+  // 描くのは面ではなく「枠線」のデータ(..._line)。元データは市町村ごとに分かれていて、
+  // そのまま描くと都市計画区域の中に市町村の境目の線が入ってしまうため、
+  // scripts/build_toshikeikaku_frame.py が区域ごとの大枠にまとめ直している。
+  // 隣り合う区域が共有している境界は、まったく同じ図形を区域の数だけ用意してある。
+  // 同じ図形なら一点鎖線の点の位置もそろうので、重ねてもきれいな一点鎖線に見える。
+  //
+  // clickFile … 地図をクリックしたときの「どの区域か」の判定に使う面のデータ。
+  //             線には内と外が無いので、判定だけは面で行う。
+  { key: "toshikeikaku_kuiki", file: "toshikeikaku_kuiki_line.geojson",
+    clickFile: "toshikeikaku_kuiki_area.geojson", clickCategoryFields: ["TokeiName"],
+    label: "都市計画区域(境界)",
     categoryFields: [], fillOpacity: 0, defaultOpacity: 1, weight: 2, dashArray: "14 5 2 5", color: "#333333" },
   // 準都市計画区域は公式凡例では「二点鎖線」(長い線→点2つ)。都市計画区域の一点鎖線と
   // 点の数で見分ける決まりなので、太さや色は都市計画区域とそろえる
-  { key: "jun_toshikeikaku_kuiki", file: "jun_toshikeikaku_kuiki.geojson", label: "準都市計画区域(境界)",
+  { key: "jun_toshikeikaku_kuiki", file: "jun_toshikeikaku_kuiki_line.geojson",
+    clickFile: "jun_toshikeikaku_kuiki_area.geojson", clickCategoryFields: ["TokeiName"],
+    label: "準都市計画区域(境界)",
     categoryFields: [], fillOpacity: 0, defaultOpacity: 1, weight: 2, dashArray: "14 5 2 5 2 5", color: "#333333" },
   // 区域区分は公式凡例に合わせて5区分。市街化区域・市街化調整区域は元データそのままだが、
   // 用途指定区域・用途指定区域外・全域用途未指定区域は元データに無いため
@@ -406,11 +419,21 @@ function computeKumamotoStyle(def, feature) {
 // paneName … このレイヤー専用の描画面(重ね順を変えるために使う)。script.jsが渡す。
 function ensureKumamotoLayer(def, paneName) {
   if (def._loadPromise) return def._loadPromise;
-  def._loadPromise = fetch(KUMAMOTO_DATA_BASE + def.file)
-    .then((res) => {
+  // clickFile があるレイヤーは、描く用(線)とクリック判定用(面)の2つを読む
+  const fetchJson = (name) =>
+    fetch(KUMAMOTO_DATA_BASE + name).then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
-    })
+    });
+  def._loadPromise = fetchJson(def.file)
+    .then((geojson) =>
+      def.clickFile
+        ? fetchJson(def.clickFile).then((areaJson) => {
+            def._clickFeatures = areaJson.features;
+            return geojson;
+          })
+        : geojson
+    )
     .then((geojson) => {
       def._hiddenItems = new Set();
 
@@ -578,6 +601,21 @@ function kumamotoMatchesAt(map, latlng) {
   const matches = [];
   KUMAMOTO_LAYER_DEFS.forEach((def) => {
     if (!def._layer || !map.hasLayer(def._layer)) return;
+
+    // 線で描いているレイヤー(都市計画区域)は、判定だけ面のデータで行う
+    if (def._clickFeatures) {
+      if (def._hiddenItems && def._hiddenItems.has("__all__")) return;
+      def._clickFeatures.forEach((feature) => {
+        if (!pointInGeometry(latlng.lng, latlng.lat, feature.geometry)) return;
+        matches.push({
+          label: def.label,
+          name: kumamotoCategoryName(feature.properties, def.clickCategoryFields || []),
+          properties: feature.properties || {},
+        });
+      });
+      return;
+    }
+
     def._layer.eachLayer((fl) => {
       const feature = fl.feature;
       if (!feature) return;

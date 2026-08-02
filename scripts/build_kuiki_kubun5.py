@@ -88,10 +88,17 @@ def to_features(geom, kubun):
     引き算でできた細かいくず（MIN_AREA_M2未満）はここで捨てる。"""
     if geom.is_empty:
         return []
-    parts = list(geom.geoms) if geom.geom_type.startswith("Multi") else [geom]
+    parts = list(geom.geoms) if hasattr(geom, "geoms") else [geom]
     out = []
     dropped = 0
     for p in parts:
+        # 図形の引き算では、面のほかに線や点が混ざって出てくることがある。
+        # 塗る対象は面だけなので、それ以外は捨てる
+        if p.geom_type not in ("Polygon", "MultiPolygon"):
+            continue
+        if p.geom_type == "MultiPolygon":
+            out.extend(to_features(p, kubun))
+            continue
         if p.is_empty or p.area <= 0:
             continue
         if p.area < MIN_AREA_DEG2:
@@ -113,6 +120,12 @@ def main():
     print("元データを読み込んでいます…")
     kubun_feats = load("kuiki_kubun")
     tokei = geoms(load("toshikeikaku_kuiki"))
+    # 「全域用途未指定区域」は都市計画区域まるごとで判定するものなので、
+    # 市町村ごとに分かれた元データではなく、区域ごとにまとめた面(17区域)で判定する。
+    # （build_toshikeikaku_frame.py が作るファイル）
+    # 図形の計算そのものは元データのまま行う。まとめ直した面はすき間を埋めてあるぶん
+    # 形が少し違うので、これで引き算すると細長いくずが増えてしまうため
+    tokei_areas = geoms(load("toshikeikaku_kuiki_area"))
     youto = geoms(load("youto_chiiki"))
     print(f"  都市計画区域 {len(tokei)} / 用途地域 {len(youto)} / 区域区分 {len(kubun_feats)}")
 
@@ -137,10 +150,14 @@ def main():
         })
     senbiki_u = unary_union(geoms(kubun_feats))
 
-    # 用途地域が1つも無い都市計画区域 ＝ 全域用途未指定区域
-    zenki = [g for g in tokei if not g.intersects(youto_u)]
+    # 用途地域が1つも無い都市計画区域 ＝ 全域用途未指定区域。
+    # どの都市計画区域が該当するかは17区域の面で判定し、
+    # 実際に書き出す図形は元データ（市町村ごと）のものを集める
+    zenki_areas = [a for a in tokei_areas if not a.intersects(youto_u)]
+    zenki = [g for g in tokei
+             if any(a.contains(g.representative_point()) for a in zenki_areas)]
     zenki_u = unary_union(zenki) if zenki else None
-    print(f"  全域用途未指定区域: {len(zenki)}件")
+    print(f"  全域用途未指定区域: {len(zenki_areas)}区域 / 元データ{len(zenki)}件")
 
     # 線引きしていない区域 ＝ 都市計画区域 － 線引き区域 － 全域用途未指定区域
     hisenbiki = tokei_u.difference(senbiki_u)
