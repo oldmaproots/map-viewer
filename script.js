@@ -169,6 +169,24 @@ function registerActiveLayer(id, label, handle) {
   slider.addEventListener("input", () => handle.setOpacity(slider.value / 100));
   handle.setOpacity(startOpacity); // 初期位置の濃さを地図にも反映しておく
 
+  // 一覧に置いたまま、地図の表示だけを一時的に消すボタン。
+  //  ✕ が「一覧から外す」なのに対し、こちらは設定(透過や重ね順)を保ったまま隠す。
+  const eyeBtn = document.createElement("button");
+  eyeBtn.className = "eye-btn";
+  let visible = true;
+  function refreshEye() {
+    eyeBtn.textContent = visible ? "👁" : "🚫";
+    eyeBtn.title = visible ? "地図から一時的に隠す" : "地図に表示する";
+    eyeBtn.classList.toggle("is-hidden", !visible);
+    row.classList.toggle("row-hidden", !visible);
+  }
+  eyeBtn.addEventListener("click", () => {
+    visible = !visible;
+    handle.setVisible?.(visible);
+    refreshEye();
+  });
+  refreshEye();
+
   const removeBtn = document.createElement("button");
   removeBtn.className = "remove-btn";
   removeBtn.textContent = "✕";
@@ -178,8 +196,12 @@ function registerActiveLayer(id, label, handle) {
   row.appendChild(orderBtns);
   row.appendChild(name);
   row.appendChild(slider);
+  row.appendChild(eyeBtn);
   row.appendChild(removeBtn);
-  activeList.appendChild(row);
+  // alwaysOnTop のレイヤー(容積率・建ぺい率の丸印など)は一覧の先頭に入れる。
+  // 一覧の上＝地図で手前なので、あとから足しても必ず手前に描かれる。
+  if (handle.alwaysOnTop) activeList.insertBefore(row, activeList.firstChild);
+  else activeList.appendChild(row);
 
   activeLayers.set(id, { row, handle });
   refreshActiveEmptyNote();
@@ -202,7 +224,9 @@ function unregisterActiveLayer(id) {
 //            pane オプションに渡すことで、専用ペインに描かれるようになる。
 // defaultOpacity … 透過スライダーの初期位置(0〜1)。省略すると1(=完全に不透明)。
 //                   都市計画図のように「薄く重ねたい」レイヤーだけ指定する。
-function buildLayerRow(container, id, label, makeLayer, defaultOpacity) {
+// options.alwaysOnTop … true にすると「選択中のレイヤー」一覧の先頭に入る(=いちばん手前)。
+//                   容積率・建ぺい率の丸印のように、下の色に隠れると困るものに使う。
+function buildLayerRow(container, id, label, makeLayer, defaultOpacity, options) {
   const row = document.createElement("label");
   row.className = "layer-row";
   const checkbox = document.createElement("input");
@@ -222,11 +246,20 @@ function buildLayerRow(container, id, label, makeLayer, defaultOpacity) {
       layer.addTo(map);
       registerActiveLayer(id, label, {
         defaultOpacity: defaultOpacity ?? 1,
+        alwaysOnTop: !!(options && options.alwaysOnTop),
         // 透過はペインごと(=このレイヤーだけ)の不透明度で調整する。
         // これならタイル・ベクトル・GeoJSONなどレイヤーの種類を問わず同じ方法で効く。
         setOpacity(v) {
           const pane = map.getPane(paneName);
           if (pane) pane.style.opacity = String(v);
+        },
+        // 一覧に残したまま地図から消す/戻す。
+        // CSSで隠すのではなく地図から本当に外すので、
+        // クリックしたときの区域名の表示にも隠したレイヤーは出てこない。
+        setVisible(v) {
+          if (!layer) return;
+          if (v) layer.addTo(map);
+          else map.removeLayer(layer);
         },
         remove() { checkbox.checked = false; checkbox.dispatchEvent(new Event("change")); },
       });
@@ -516,7 +549,10 @@ function addSourceNote(container, html) {
         sub,
         "youto-circles",
         "└ 容積率・建ぺい率(丸印)",
-        (paneName) => createYoutoCircleLayer(paneName)
+        (paneName) => createYoutoCircleLayer(paneName),
+        1,
+        // 用途地域の色の上に重ねないと文字が読めないので、常にいちばん手前に置く
+        { alwaysOnTop: true }
       );
       addSourceNote(
         sub,
@@ -783,17 +819,16 @@ map.on("click", (e) => {
   searchResults.classList.add("hidden"); // 地図をクリックしたら検索結果を閉じる
   const lat = e.latlng.lat.toFixed(6);
   const lng = e.latlng.lng.toFixed(6);
-  // 表示中の都市計画レイヤーに当たっていれば区域名も出す
-  const matches = kumamotoMatchesAt(map, e.latlng);
-  const matchHtml = matches.length
-    ? `<div style="margin-bottom:4px">${matches.map((m) => `・${m}`).join("<br>")}</div>`
-    : "";
-  L.popup()
+  // 表示中の都市計画レイヤーに当たっていれば、その区域のデータを全部出す
+  const matchHtml = kumamotoPopupHtml(kumamotoMatchesAt(map, e.latlng));
+  L.popup({ maxWidth: 330 })
     .setLatLng(e.latlng)
     .setContent(
+      `<div class="map-popup">` +
       matchHtml +
-      `緯度: ${lat}<br>経度: ${lng}<br>` +
-      `<a href="https://maps.gsi.go.jp/#16/${lat}/${lng}" target="_blank">地理院地図で開く</a>`
+      `<div class="popup-latlng">緯度: ${lat}<br>経度: ${lng}<br>` +
+      `<a href="https://maps.gsi.go.jp/#16/${lat}/${lng}" target="_blank">地理院地図で開く</a></div>` +
+      `</div>`
     )
     .openOn(map);
 });

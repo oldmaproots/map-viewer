@@ -128,6 +128,31 @@ html, body {
   width: 80px;
 }
 
+/* 一覧に残したまま地図の表示だけを切り替えるボタン */
+.active-row .eye-btn {
+  cursor: pointer;
+  border: none;
+  background: #eee;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 1px 5px;
+}
+
+.active-row .eye-btn:hover {
+  background: #d8e4f5;
+}
+
+.active-row .eye-btn.is-hidden {
+  background: #ddd;
+}
+
+/* 隠しているレイヤーの行は薄くして、見分けがつくようにする */
+.active-row.row-hidden .name {
+  color: #999;
+  text-decoration: line-through;
+}
+
 .active-row .remove-btn {
   cursor: pointer;
   border: none;
@@ -377,6 +402,10 @@ label.layer-row:hover {
   height: 58px;
   border-radius: 50%;
   border: 1px solid rgba(60, 50, 40, 0.75);
+  /* 三分割の線を円の内側で切り取るために使う。
+     中段の幅を100%にしても、はみ出した分はこれで円の形に切られるので、
+     線の端がちょうど円周に接して見える */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -401,11 +430,60 @@ label.layer-row:hover {
   font-size: 12px;
 }
 
+/* ---- 地図をクリックしたときのふきだし ---- */
+/* 都市計画の区域に当たったときは、元データの項目をすべて表にして出す。
+   何枚も重なっている場所だと縦に長くなるので、中だけスクロールさせる */
+.map-popup {
+  max-height: 340px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.map-popup .popup-section {
+  margin-bottom: 8px;
+}
+
+.map-popup .popup-section-title {
+  font-weight: bold;
+  background: #eef3fa;
+  border-left: 3px solid #2b5797;
+  padding: 2px 6px;
+  margin-bottom: 3px;
+}
+
+.map-popup .popup-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.map-popup .popup-table th,
+.map-popup .popup-table td {
+  border: 1px solid #e0e0e0;
+  padding: 2px 6px;
+  text-align: left;
+  vertical-align: top;
+  font-weight: normal;
+}
+
+.map-popup .popup-table th {
+  background: #f7f7f7;
+  white-space: nowrap;
+  color: #555;
+  width: 1%;
+}
+
+.map-popup .popup-latlng {
+  color: #666;
+  border-top: 1px dotted #ccc;
+  padding-top: 4px;
+}
+
 /* 中段。上下の線が円を三分割する見た目を作る。
-   幅を狭めているのは、線を円の弦(端まで届かない線)に見せるため */
+   幅は円いっぱい(100%)にして、はみ出した分は親の overflow:hidden が
+   円の形に切り取る。こうすると線の端が円周にぴったり接する */
 .youto-circle .youto-abbr {
   font-size: 11px;
-  width: 72%;
+  width: 100%;
   text-align: center;
   border-top: 1px solid rgba(60, 50, 40, 0.75);
   border-bottom: 1px solid rgba(60, 50, 40, 0.75);

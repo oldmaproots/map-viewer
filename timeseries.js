@@ -155,6 +155,12 @@ function enableTimeseries(onRemoved) {
       tsOpacity = v;
       if (tsLayer) tsLayer.setOpacity(v);
     },
+    // 一覧に残したまま地図から消す/戻す(年代のスライダーはそのまま使える)
+    setVisible(v) {
+      if (!tsLayer) return;
+      if (v) tsLayer.addTo(tsMap);
+      else tsMap.removeLayer(tsLayer);
+    },
     remove() {
       disableTimeseries();
       if (tsOnRemoved) tsOnRemoved();

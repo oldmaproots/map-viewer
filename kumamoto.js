@@ -19,22 +19,25 @@ const KUMAMOTO_ATTRIBUTION =
   '都市計画決定GISデータ(国土交通省)令和7年度</a>を加工して作成';
 
 // ---- 用途地域の色（都市計画総括図の公式凡例に準拠） ----
-// 熊本県の都市計画総括図の凡例（用途地域凡例.pdf）から実測した色をそのまま使う。
+// 建ぺい率・容積率つきの凡例表（_reference/用途地域凡例_色見本.png）の
+// 色見本から1マスずつ実測した色をそのまま使う。
 // 並べた順番が、そのまま凡例に表示する順番になる（住居系→商業系→工業系）。
 const YOUTO_CHIIKI_FILL = {
-  第１種低層住居専用地域: "#95C5C7", // 青緑
-  第２種低層住居専用地域: "#C8E8E7", // うすい青緑
-  第１種中高層住居専用地域: "#B6D48E", // 黄緑
-  第２種中高層住居専用地域: "#E0F3DF", // うすい黄緑
-  第１種住居地域: "#FAF3AF", // 黄
-  第２種住居地域: "#F3DEC9", // うすい黄
-  準住居地域: "#F5CEA3", // 橙
-  田園住居地域: "#C8A55D", // うすい茶（熊本県内に指定なし。将来のために用意）
-  近隣商業地域: "#FCE8F3", // 桃
-  商業地域: "#F6C4C7", // 赤
-  準工業地域: "#C4C5E1", // 紫
-  工業地域: "#CBEBF8", // 水色
-  工業専用地域: "#67C2EE", // 青
+  第１種低層住居専用地域: "#90BFC1", // 青緑
+  第２種低層住居専用地域: "#C5E4E7", // うすい青緑
+  第１種中高層住居専用地域: "#B1CC83", // 黄緑
+  第２種中高層住居専用地域: "#E2EFDB", // うすい黄緑
+  第１種住居地域: "#F6F1A4", // 黄
+  第２種住居地域: "#EFDAC4", // うすい黄
+  準住居地域: "#F1C999", // 橙
+  // 田園住居地域だけは凡例表に載っていない（熊本県内に指定なし）。
+  // 国の計画図凡例（用途地域凡例.pdf）の「うすい茶」を将来のために残しておく
+  田園住居地域: "#C8A55D",
+  近隣商業地域: "#F7E5EE", // 桃
+  商業地域: "#F1BEBE", // 赤
+  準工業地域: "#BEBDDF", // 紫
+  工業地域: "#C8E8FA", // 水色
+  工業専用地域: "#6BBBEE", // 青
 };
 
 // 色を暗くする。境界線の色を塗りつぶし色から自動で作るために使う
@@ -569,7 +572,8 @@ function pointInGeometry(lng, lat, geometry) {
 }
 
 // 表示中の都市計画レイヤーのうち、クリック地点に当たるものを列挙する
-// (凡例で非表示にした項目は対象外)
+// (凡例で非表示にした項目は対象外)。
+// 元データの属性をそのまま持って返すので、呼び出し側で全部表示できる。
 function kumamotoMatchesAt(map, latlng) {
   const matches = [];
   KUMAMOTO_LAYER_DEFS.forEach((def) => {
@@ -579,11 +583,75 @@ function kumamotoMatchesAt(map, latlng) {
       if (!feature) return;
       if (def._hiddenItems && def._hiddenItems.has(kumamotoItemName(def, feature))) return;
       if (!pointInGeometry(latlng.lng, latlng.lat, feature.geometry)) return;
-      const name = kumamotoCategoryName(feature.properties, def.categoryFields);
-      matches.push(name ? `${def.label}: ${name}` : def.label);
+      matches.push({
+        label: def.label,
+        name: kumamotoCategoryName(feature.properties, def.categoryFields),
+        properties: feature.properties || {},
+      });
     });
   });
   return matches;
+}
+
+// ---- クリックしたときに出す表の作り方 ----
+// 元データの属性名は英語なので、日本語の見出しに直して表示する。
+// ここに無い項目は、元データの名前のまま出す（勝手に意味を決めない）。
+const KUMAMOTO_FIELD_LABELS = {
+  Pref: "都道府県",
+  Cityname: "市町村",
+  Citycode: "市町村コード",
+  AreaType: "種別",
+  AreaCode: "種別コード",
+  DistType: "種別",
+  DistCode: "種別コード",
+  DistName: "地区名",
+  TokeiType: "種別",
+  TokeiCode: "種別コード",
+  TokeiName: "名称",
+  DouroType: "種別",
+  DouroCode: "種別コード",
+  ParkType: "種別",
+  ParkCode: "種別コード",
+  ParkName: "名称",
+  YoutoName: "用途地域",
+  YoutoCode: "用途地域コード",
+  FAR: "容積率",
+  BCR: "建ぺい率",
+  FNDate: "決定年月日",
+  FNNumber: "告示番号",
+};
+
+// 「%」を付けて読みやすくする項目
+const KUMAMOTO_PERCENT_FIELDS = new Set(["FAR", "BCR"]);
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// クリック地点に当たった区域を、レイヤーごとの表にして返す
+function kumamotoPopupHtml(matches) {
+  if (!matches.length) return "";
+  return matches
+    .map((m) => {
+      const heading = m.name ? `${m.label}: ${m.name}` : m.label;
+      const rows = Object.entries(m.properties)
+        .filter(([, v]) => v !== null && v !== undefined && v !== "")
+        .map(([k, v]) => {
+          const label = KUMAMOTO_FIELD_LABELS[k] || k;
+          const value = KUMAMOTO_PERCENT_FIELDS.has(k) ? `${v}%` : v;
+          return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`;
+        })
+        .join("");
+      return (
+        `<div class="popup-section">` +
+        `<div class="popup-section-title">${escapeHtml(heading)}</div>` +
+        (rows ? `<table class="popup-table">${rows}</table>` : "") +
+        `</div>`
+      );
+    })
+    .join("");
 }
 
 // ============================================================
