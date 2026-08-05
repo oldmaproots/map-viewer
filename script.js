@@ -54,6 +54,33 @@ const BASE_LAYERS = {
     attribution: GSI_ATTRIBUTION, maxNativeZoom: 18, maxZoom: 20,
   }),
 };
+
+// ---- 基盤地図情報(線)の背景地図 ----
+// 国土地理院の基盤地図情報(基本項目)から、線の項目だけを取り出して
+// ベクトルタイル(PMTiles)にしたもの。海岸線・行政界・道路縁・建築物の外周線などを
+// 灰色一色で描く、白地図に近い下地。都市計画図を重ねて見るときに向いている。
+//
+// 元は1.5GBあるが、タイルにすると画面に映っている範囲の必要な分だけを読むので軽い。
+// 作り方は 10FGDBaseMap/scripts/build_web_tiles.py を参照。
+const FGD_ATTRIBUTION =
+  '<a href="https://fgd.gsi.go.jp/download/" target="_blank">基盤地図情報(国土地理院)</a>を加工して作成';
+
+// PMTilesを読むための下ごしらえ。MapLibreに「pmtiles://」の読み方を教える
+if (window.pmtiles && window.maplibregl) {
+  maplibregl.addProtocol("pmtiles", new pmtiles.Protocol().tile);
+}
+
+// 背景地図なので、都市計画図などの重ねるレイヤーより奥に描く専用の面を用意する
+// (タイルの面=200 と 重ねるレイヤーの面=410〜 の間に入れる)
+map.createPane("base-vector");
+map.getPane("base-vector").style.zIndex = "210";
+
+BASE_LAYERS["基盤地図情報(線)"] = L.maplibreGL({
+  style: "fgd-basemap-style.json",
+  attribution: FGD_ATTRIBUTION,
+  pane: "base-vector",
+});
+
 let currentBase = BASE_LAYERS["標準地図"];
 currentBase.addTo(map);
 
@@ -594,6 +621,13 @@ function addBaseLayerRow(name) {
 (function buildBaseCategory() {
   baseCategoryBody = buildCategory("7. 背景地図");
   Object.keys(BASE_LAYERS).forEach(addBaseLayerRow);
+  addSourceNote(
+    baseCategoryBody,
+    "「基盤地図情報(線)」は国土地理院の基盤地図情報(基本項目)から" +
+    "海岸線・行政界・道路縁・水涯線・建築物の外周線などを取り出して灰色で描いたものです。" +
+    "都市計画図を重ねて見るのに向いています。" +
+    "引くと主要な線だけになり、拡大すると細かい線が出ます(建築物はズーム14以上)。"
+  );
 })();
 
 // ---- Googleマップ・Google航空写真の組み込み ----

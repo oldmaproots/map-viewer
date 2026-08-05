@@ -1,0 +1,114 @@
+{
+  "version": 8,
+  "name": "基盤地図情報(線)",
+  "sources": {
+    "fgd": {
+      "type": "vector",
+      "url": "pmtiles://data/basemap/fgd_lines.pmtiles",
+      "attribution": "<a href=\"https://fgd.gsi.go.jp/download/\" target=\"_blank\">基盤地図情報(国土地理院)</a>を加工して作成"
+    }
+  },
+  "layers": [
+    {
+      "id": "fgd-tatemono",
+      "source": "fgd",
+      "source-layer": "建築物外周線",
+      "type": "line",
+      "minzoom": 14,
+      "paint": {
+        "line-color": "#9a9a9a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 14, 0.4, 18, 1.0],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0.5, 16, 0.9]
+      }
+    },
+    {
+      "id": "fgd-suigai",
+      "source": "fgd",
+      "source-layer": "水涯線",
+      "type": "line",
+      "minzoom": 11,
+      "paint": {
+        "line-color": "#8a8a8a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.4, 18, 1.2]
+      }
+    },
+    {
+      "id": "fgd-suibu",
+      "source": "fgd",
+      "source-layer": "水部構造物線",
+      "type": "line",
+      "minzoom": 12,
+      "paint": {
+        "line-color": "#8a8a8a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.4, 18, 1.0]
+      }
+    },
+    {
+      "id": "fgd-douro",
+      "source": "fgd",
+      "source-layer": "道路縁",
+      "type": "line",
+      "minzoom": 12,
+      "paint": {
+        "line-color": "#8a8a8a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.3, 15, 0.7, 18, 1.4]
+      }
+    },
+    {
+      "id": "fgd-douro-kousei",
+      "source": "fgd",
+      "source-layer": "道路構成線",
+      "type": "line",
+      "minzoom": 13,
+      "paint": {
+        "line-color": "#9a9a9a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 13, 0.3, 18, 0.9]
+      }
+    },
+    {
+      "id": "fgd-kidou",
+      "source": "fgd",
+      "source-layer": "軌道の中心線",
+      "type": "line",
+      "minzoom": 10,
+      "paint": {
+        "line-color": "#7a7a7a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 18, 1.6]
+      }
+    },
+    {
+      "id": "fgd-choaza",
+      "source": "fgd",
+      "source-layer": "町字界線",
+      "type": "line",
+      "minzoom": 13,
+      "paint": {
+        "line-color": "#a8a8a8",
+        "line-width": 0.6,
+        "line-dasharray": [4, 3]
+      }
+    },
+    {
+      "id": "fgd-gyousei",
+      "source": "fgd",
+      "source-layer": "行政界線",
+      "type": "line",
+      "minzoom": 8,
+      "paint": {
+        "line-color": "#6f6f6f",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 14, 1.4]
+      }
+    },
+    {
+      "id": "fgd-kaigan",
+      "source": "fgd",
+      "source-layer": "海岸線",
+      "type": "line",
+      "minzoom": 8,
+      "paint": {
+        "line-color": "#6f6f6f",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 14, 1.4]
+      }
+    }
+  ]
+}
