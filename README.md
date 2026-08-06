@@ -143,11 +143,20 @@
    国土地理院の基盤地図情報（基本項目）から海岸線・行政界線・道路縁・水涯線・
    建築物外周線など**9項目の線だけ**を取り出し、灰色一色で描く白地図に近い下地。
    都市計画図を重ねて見るのに向いている。
-   - 実体は**ベクトルタイル**（`data/basemap/fgd_lines.pmtiles`・68.8MB・ズーム8〜14）。
+   - 実体は**ベクトルタイル**（68.8MB・ズーム8〜14・3,504タイル）。
      元は1.5GBのGeoPackageだが、タイルにすると画面に映っている範囲の
      必要な分だけを読むので軽い。作り方は`10FGDBaseMap/scripts/build_web_tiles.py`。
+   - **タイルはこのリポジトリには入っていない。**
+     配信専用の別リポジトリ [oldmaproots/map-tiles](https://github.com/oldmaproots/map-tiles)
+     に置き、`pmtiles://https://oldmaproots.github.io/map-tiles/fgd_lines.pmtiles`
+     として読んでいる。
+     同梱していたときはサイト全体が約110MBになり、
+     **GitHub Pagesの配信が10分の制限時間に間に合わず失敗した**
+     （`Current status: deployment_queued`の繰り返し→`Timeout reached, aborting!`。
+     ビルド自体は33秒で成功していた）。
    - PMTilesは1つの大きなファイルの**必要な部分だけを取ってくる**方式
-     （HTTPの範囲リクエスト）。GitHub Pagesはこれに対応している。
+     （HTTPの範囲リクエスト）。GitHub Pagesは範囲リクエストにもCORSにも対応しているので、
+     別ドメインに置いても読める。
      `index.html`で読み込む`pmtiles`が`pmtiles://`の読み方をMapLibreに教えている。
    - **`serve.py`（ローカル確認用サーバー）にも範囲リクエスト対応を足した**。
      Python標準のサーバーは対応しておらず、

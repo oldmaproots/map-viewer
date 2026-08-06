@@ -4,7 +4,8 @@
   "sources": {
     "fgd": {
       "type": "vector",
-      "url": "pmtiles://data/basemap/fgd_lines.pmtiles",
+      "_comment": "タイルは配信専用の別リポジトリ(oldmaproots/map-tiles)に置いている。同梱するとサイトが約110MBになり、GitHub Pagesの配信が10分の制限に間に合わず失敗したため",
+      "url": "pmtiles://https://oldmaproots.github.io/map-tiles/fgd_lines.pmtiles",
       "attribution": "<a href=\"https://fgd.gsi.go.jp/download/\" target=\"_blank\">基盤地図情報(国土地理院)</a>を加工して作成"
     }
   },
