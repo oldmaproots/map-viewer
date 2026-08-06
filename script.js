@@ -621,13 +621,6 @@ function addBaseLayerRow(name) {
 (function buildBaseCategory() {
   baseCategoryBody = buildCategory("7. 背景地図");
   Object.keys(BASE_LAYERS).forEach(addBaseLayerRow);
-  addSourceNote(
-    baseCategoryBody,
-    "「基盤地図情報(線)」は国土地理院の基盤地図情報(基本項目)から" +
-    "海岸線・行政界・道路縁・水涯線・建築物の外周線などを取り出して灰色で描いたものです。" +
-    "都市計画図を重ねて見るのに向いています。" +
-    "引くと主要な線だけになり、拡大すると細かい線が出ます(建築物はズーム14以上)。"
-  );
 })();
 
 // ---- Googleマップ・Google航空写真の組み込み ----

@@ -10,6 +10,14 @@
   },
   "layers": [
     {
+      "_comment": "この背景地図は線しか描かないので、下に何も敷かないとLeafletの既定の灰色が透けて見える。白を1枚敷いて白地図のようにする",
+      "id": "fgd-haikei",
+      "type": "background",
+      "paint": {
+        "background-color": "#ffffff"
+      }
+    },
+    {
       "id": "fgd-tatemono",
       "source": "fgd",
       "source-layer": "建築物外周線",
