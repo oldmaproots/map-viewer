@@ -94,6 +94,58 @@ const KUMAMOTO_CATEGORY_COLORS = {
   });
 });
 
+// ---- 用途地域の凡例に添える注記（公式凡例の「注)」をそのまま載せる） ----
+// {丸:200/60} と書いたところには、容積率(上)と建ぺい率(下)を書いた丸印を描く。
+// {丸:} は数字の入っていない丸で、「丸印の表示そのもの」を指すときに使う。
+// 先頭の1つだけはこのサイト独自の説明（丸印の読み方と、出てくるズーム）。
+const YOUTO_LEGEND_NOTES = [
+  {
+    mark: "※",
+    text: "丸印は上から順に「容積率／用途地域の略称／建ぺい率」。ズーム15以上で表示されます。",
+  },
+  {
+    mark: "注) 1:",
+    text: "第１種住居地域・第２種住居地域・準住居地域・準工業地域・工業地域において、" +
+      "{丸:}の表示のない地域は総て{丸:200/60}です。",
+  },
+  {
+    mark: "注) 2:",
+    text: "用途地域の指定のない区域は{丸:200/70}、ただし益城町は{丸:400/70}です。",
+  },
+  {
+    mark: "注) 3:",
+    text: "工業専用地域及び田園住居地域の指定はありません。※令和2年(2020年)2月時点",
+  },
+];
+
+// 「{丸:200/60}」のような書き方を、実際の丸印に置き換えて並べる
+function buildLegendNoteBody(text) {
+  const body = document.createElement("span");
+  body.className = "legend-note-body";
+  // {丸:…} のところで区切りながら、文字と丸印を順に足していく
+  const parts = text.split(/(\{丸:[^}]*\})/);
+  parts.forEach((part) => {
+    const m = part.match(/^\{丸:([^}]*)\}$/);
+    if (!m) {
+      if (part) body.appendChild(document.createTextNode(part));
+      return;
+    }
+    const [top, bottom] = m[1].split("/");
+    const circle = document.createElement("span");
+    circle.className = "legend-circle";
+    const t = document.createElement("span");
+    t.className = "lc-top";
+    t.textContent = top || "";
+    const b = document.createElement("span");
+    b.className = "lc-bottom";
+    b.textContent = bottom || "";
+    circle.appendChild(t);
+    circle.appendChild(b);
+    body.appendChild(circle);
+  });
+  return body;
+}
+
 // 凡例に並べる順番。用途地域と区域区分は公式凡例の順、それ以外は五十音順にする
 const YOUTO_CHIIKI_ORDER = Object.keys(YOUTO_CHIIKI_FILL);
 const KUIKI_KUBUN_ORDER = Object.keys(KUIKI_KUBUN_FILL);
@@ -757,6 +809,23 @@ function buildLegendSection(def) {
     row.appendChild(name);
     section.appendChild(row);
   });
+
+  // 用途地域には公式凡例の注記を添える（容積率・建ぺい率の丸印の読み方もここ）
+  if (def.key === "youto_chiiki") {
+    const notes = document.createElement("div");
+    notes.className = "legend-notes";
+    YOUTO_LEGEND_NOTES.forEach((note) => {
+      const line = document.createElement("div");
+      line.className = "legend-note";
+      const mark = document.createElement("span");
+      mark.className = "legend-note-mark";
+      mark.textContent = note.mark;
+      line.appendChild(mark);
+      line.appendChild(buildLegendNoteBody(note.text));
+      notes.appendChild(line);
+    });
+    section.appendChild(notes);
+  }
 
   return section;
 }

@@ -723,6 +723,65 @@ label.layer-row:hover {
   text-overflow: ellipsis;
 }
 
+/* ---- 凡例の注記(公式凡例の「注)」をそのまま載せる) ---- */
+.legend-notes {
+  border-top: 1px dotted #bbb;
+  margin-top: 6px;
+  padding-top: 5px;
+}
+
+.legend-note {
+  display: flex;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.7;
+  color: #555;
+  margin-bottom: 3px;
+}
+
+.legend-note-mark {
+  flex: none;
+  white-space: nowrap;
+}
+
+.legend-note-body {
+  flex: 1;
+}
+
+/* 注記の文中に出す小さな丸印(上＝容積率 / 下＝建ぺい率)。
+   地図に描く丸は三分割だが、公式凡例の注記では二分割で書かれているのでそれに合わせる */
+.legend-circle {
+  display: inline-flex;
+  flex-direction: column;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(60, 50, 40, 0.75);
+  overflow: hidden; /* 中の線を円の形で切り取る(線の端が円周に接する) */
+  vertical-align: middle;
+  margin: 0 2px;
+  font-family: "Meiryo", sans-serif;
+  font-size: 8px;
+  /* 注記の行間(1.7)をそのまま受け継ぐと文字が円の高さに収まらず、
+     上下が切れてしまう。ここで詰めておく */
+  line-height: 1.1;
+  color: #3a3228;
+  box-sizing: border-box;
+}
+
+.legend-circle > span {
+  flex: 1;
+  min-height: 0; /* これが無いと文字の高さより縮まず、円からはみ出す */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.legend-circle .lc-top {
+  border-bottom: 1px solid rgba(60, 50, 40, 0.75);
+}
+
 /* ---- 住所・地名検索(右上) ---- */
 #search-box {
   position: absolute;
