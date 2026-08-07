@@ -81,15 +81,122 @@ BASE_LAYERS["基盤地図情報(線)"] = L.maplibreGL({
   pane: "base-vector",
 });
 
-let currentBase = BASE_LAYERS["標準地図"];
+// いま選んでいる背景地図。名前も覚えておく(保存・復元に使う)
+let currentBaseName = "標準地図";
+let currentBase = BASE_LAYERS[currentBaseName];
 currentBase.addTo(map);
+
+// 背景地図を切り替える。ラジオボタンからも、保存した状態を戻すときからも呼ぶ
+function selectBaseLayer(name) {
+  if (!BASE_LAYERS[name] || name === currentBaseName) return;
+  map.removeLayer(currentBase);
+  currentBaseName = name;
+  currentBase = BASE_LAYERS[name];
+  currentBase.addTo(map);
+  if (baseRadioByName[name]) baseRadioByName[name].checked = true;
+  saveLayerState();
+}
 
 // ============================================================
 // 選択中のレイヤー一覧(透過スライダー付き)
 // registerActiveLayer / unregisterActiveLayer は他のファイルからも呼ばれる
 // ============================================================
 const activeList = document.getElementById("active-layers-list");
-const activeLayers = new Map(); // id -> { row, handle }
+const activeLayers = new Map(); // id -> { row, handle, slider, setVisible }
+
+// ============================================================
+// 選んだレイヤーを覚えておく(リロードしても消えないように)
+// ------------------------------------------------------------
+// 「どのレイヤーを選んでいるか」「重ね順」「透過」「隠しているか」と
+// 背景地図の種類をブラウザに保存し、次に開いたときに戻す。
+// 見ていた場所(中心とズーム)は別のキー(VIEW_STORAGE_KEY)で保存している。
+// ============================================================
+const LAYERS_STORAGE_KEY = "map-viewer-layers";
+
+// idからチェックボックスを引くための表(buildLayerRowが登録する)
+const layerControls = new Map(); // id -> { checkbox, applyCheck }
+
+// 初めて開いたときに出しておくもの
+const DEFAULT_LAYER_STATE = {
+  base: "基盤地図情報(線)",
+  layers: [
+    { id: "youto-circles" },          // 容積率・建ぺい率の丸印
+    { id: "kumamoto-youto_chiiki" },  // 用途地域
+  ],
+};
+
+// 保存を一時的に止めるための目印。
+// 前回の状態を戻している最中は、途中経過を保存してしまわないようにする
+let restoringLayers = false;
+
+function saveLayerState() {
+  if (restoringLayers) return;
+  const layers = [...activeList.querySelectorAll(".active-row")].map((row) => {
+    const id = row.dataset.layerId;
+    const entry = activeLayers.get(id);
+    return {
+      id,
+      opacity: entry && entry.slider ? Number(entry.slider.value) / 100 : 1,
+      visible: !row.classList.contains("row-hidden"),
+    };
+  });
+  try {
+    localStorage.setItem(
+      LAYERS_STORAGE_KEY,
+      JSON.stringify({ base: currentBaseName, layers })
+    );
+  } catch (e) { /* 保存できなくても表示には影響しない */ }
+}
+
+function loadLayerState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAYERS_STORAGE_KEY));
+    if (saved && Array.isArray(saved.layers)) return saved;
+  } catch (e) { /* 壊れていたら初期設定で始める */ }
+  return DEFAULT_LAYER_STATE;
+}
+
+// 前回の状態に戻す。すべてのカテゴリを作り終えたあとに1回だけ呼ぶ
+async function restoreLayerState() {
+  const state = loadLayerState();
+
+  if (state.base && BASE_LAYERS[state.base] && state.base !== currentBaseName) {
+    selectBaseLayer(state.base);
+  }
+
+  restoringLayers = true;
+  // 上の行から順に足していく。あとから足したものは下に付くので、
+  // この順番で足せば保存したときの重ね順がそのまま再現される
+  for (const item of state.layers) {
+    const control = layerControls.get(item.id);
+    if (!control || control.checkbox.checked) continue;
+    control.checkbox.checked = true;
+    try {
+      await control.applyCheck(); // 読み込みが終わるまで待つ
+    } catch (e) {
+      control.checkbox.checked = false;
+      continue;
+    }
+    const entry = activeLayers.get(item.id);
+    if (!entry) continue;
+    if (typeof item.opacity === "number" && entry.slider) {
+      entry.slider.value = Math.round(item.opacity * 100);
+      entry.handle.setOpacity(item.opacity);
+    }
+    if (item.visible === false) entry.setVisible(false);
+  }
+
+  // 「いちばん手前に置く」レイヤーは足すと先頭へ入るので、
+  // 最後に保存どおりの並びへ直しておく
+  state.layers.forEach((item) => {
+    const entry = activeLayers.get(item.id);
+    if (entry) activeList.appendChild(entry.row);
+  });
+  applyLayerOrder();
+
+  restoringLayers = false;
+  saveLayerState();
+}
 
 // ============================================================
 // レイヤーごとの専用ペイン(重ね順の変更に使う)
@@ -139,6 +246,7 @@ function moveActiveRow(row, dir) {
     if (next && next.classList.contains("active-row")) activeList.insertBefore(next, row);
   }
   applyLayerOrder();
+  saveLayerState();
 }
 
 function refreshActiveEmptyNote() {
@@ -193,7 +301,10 @@ function registerActiveLayer(id, label, handle) {
   const startOpacity = handle.defaultOpacity ?? 1;
   slider.value = Math.round(startOpacity * 100);
   slider.title = "透過(右へ動かすほど濃くなる)";
-  slider.addEventListener("input", () => handle.setOpacity(slider.value / 100));
+  slider.addEventListener("input", () => {
+    handle.setOpacity(slider.value / 100);
+    saveLayerState();
+  });
   handle.setOpacity(startOpacity); // 初期位置の濃さを地図にも反映しておく
 
   // 一覧に置いたまま、地図の表示だけを一時的に消すボタン。
@@ -208,10 +319,15 @@ function registerActiveLayer(id, label, handle) {
     row.classList.toggle("row-hidden", !visible);
   }
   eyeBtn.addEventListener("click", () => {
-    visible = !visible;
+    setVisible(!visible);
+    saveLayerState();
+  });
+  // 保存した状態から戻すときにも使う
+  function setVisible(v) {
+    visible = v;
     handle.setVisible?.(visible);
     refreshEye();
-  });
+  }
   refreshEye();
 
   const removeBtn = document.createElement("button");
@@ -230,9 +346,11 @@ function registerActiveLayer(id, label, handle) {
   if (handle.alwaysOnTop) activeList.insertBefore(row, activeList.firstChild);
   else activeList.appendChild(row);
 
-  activeLayers.set(id, { row, handle });
+  // slider と setVisible は、保存した状態を戻すときに使う
+  activeLayers.set(id, { row, handle, slider, setVisible });
   refreshActiveEmptyNote();
   applyLayerOrder(); // 追加した行を含めて重ね順とボタンの状態を整える
+  saveLayerState();
 }
 
 function unregisterActiveLayer(id) {
@@ -242,6 +360,7 @@ function unregisterActiveLayer(id) {
   activeLayers.delete(id);
   refreshActiveEmptyNote();
   applyLayerOrder(); // 残った行の▲▼の有効/無効を整える
+  saveLayerState();
 }
 
 // ---- チェックボックス式レイヤー行の共通部品 ----
@@ -260,7 +379,10 @@ function buildLayerRow(container, id, label, makeLayer, defaultOpacity, options)
   checkbox.type = "checkbox";
   let layer = null;
 
-  checkbox.addEventListener("change", async () => {
+  // チェックの入切で実際にレイヤーを足したり外したりする処理。
+  // 前回の状態を戻すときにも同じ処理を使いたいので、関数として取り出してある
+  // （読み込みが終わるまで待てるよう、Promiseを返すようにしている）。
+  async function applyCheck() {
     if (checkbox.checked) {
       const paneName = ensureLayerPane(id); // 先に専用ペインを用意する
       try {
@@ -294,7 +416,11 @@ function buildLayerRow(container, id, label, makeLayer, defaultOpacity, options)
       if (layer) map.removeLayer(layer);
       unregisterActiveLayer(id);
     }
-  });
+  }
+
+  checkbox.addEventListener("change", applyCheck);
+  // 前回の状態を戻すときに、idからこの行を呼び出せるようにしておく
+  layerControls.set(id, { checkbox, applyCheck });
 
   row.appendChild(checkbox);
   row.appendChild(document.createTextNode(label));
@@ -601,12 +727,9 @@ function addBaseLayerRow(name) {
   const radio = document.createElement("input");
   radio.type = "radio";
   radio.name = "base-layer";
-  radio.checked = map.hasLayer(BASE_LAYERS[name]);
+  radio.checked = name === currentBaseName;
   radio.addEventListener("change", () => {
-    if (!radio.checked) return;
-    map.removeLayer(currentBase);
-    currentBase = BASE_LAYERS[name];
-    currentBase.addTo(map);
+    if (radio.checked) selectBaseLayer(name);
   });
   baseRadioByName[name] = radio;
   row.appendChild(radio);
@@ -725,8 +848,36 @@ function showToast(message) {
 // ============================================================
 const searchInput = document.getElementById("search-input");
 const searchBtn = document.getElementById("search-btn");
+const searchClearBtn = document.getElementById("search-clear");
 const searchResults = document.getElementById("search-results");
 let searchMarker = null;
+
+// 地図に立てたピンを消す
+function removeSearchMarker() {
+  if (searchMarker) {
+    searchMarker.remove();
+    searchMarker = null;
+  }
+}
+
+// 入力・検索結果・ピンをまとめて消す(✕ボタン)
+function clearSearch() {
+  searchInput.value = "";
+  searchResults.innerHTML = "";
+  searchResults.classList.add("hidden");
+  removeSearchMarker();
+  refreshSearchClearButton();
+  searchInput.focus();
+}
+
+// 消すものが何も無いときは✕を隠しておく
+function refreshSearchClearButton() {
+  const hasSomething =
+    searchInput.value !== "" ||
+    searchMarker !== null ||
+    !searchResults.classList.contains("hidden");
+  searchClearBtn.classList.toggle("hidden", !hasSomething);
+}
 
 async function gsiSearch(query) {
   const res = await fetch(
@@ -753,9 +904,10 @@ function renderSearchResults(items) {
     div.textContent = item.title;
     div.addEventListener("click", () => {
       map.flyTo([item.lat, item.lng], 15);
-      if (searchMarker) searchMarker.remove();
+      removeSearchMarker();
       searchMarker = L.marker([item.lat, item.lng]).addTo(map).bindPopup(item.title);
       searchResults.classList.add("hidden");
+      refreshSearchClearButton();
     });
     searchResults.appendChild(div);
   });
@@ -763,22 +915,34 @@ function renderSearchResults(items) {
 
 async function doSearch() {
   const query = searchInput.value.trim();
-  if (!query) return;
+  // 何も入れずに検索したときは、前に立てたピンを消して終わり
+  if (!query) {
+    searchResults.innerHTML = "";
+    searchResults.classList.add("hidden");
+    removeSearchMarker();
+    refreshSearchClearButton();
+    return;
+  }
   searchResults.innerHTML = "<div class='search-result-item'>検索中…</div>";
   searchResults.classList.remove("hidden");
+  refreshSearchClearButton();
   try {
     renderSearchResults(await gsiSearch(query));
   } catch (err) {
     searchResults.classList.add("hidden");
     showToast("検索に失敗しました(通信状態を確認してください)");
   }
+  refreshSearchClearButton();
 }
 
 searchBtn.addEventListener("click", doSearch);
+searchClearBtn.addEventListener("click", clearSearch);
+searchInput.addEventListener("input", refreshSearchClearButton);
 searchInput.addEventListener("keydown", (e) => {
   // 環境によりEnterキーの名前が違うことがあるため両方見る
   if (e.key === "Enter" || e.keyCode === 13) doSearch();
 });
+refreshSearchClearButton();
 
 // ============================================================
 // 現在地ボタン(ブラウザの位置情報APIを使用)
@@ -860,3 +1024,7 @@ initTimeseries(map);
 initKumamotoLegend(map); // 都市計画図の凡例(右下)
 updateStatusBar();
 refreshActiveEmptyNote();
+
+// 前回選んでいたレイヤーと背景地図を戻す(初回は用途地域＋容積率建ぺい率)。
+// カテゴリをすべて作り終えたあとに呼ぶ必要があるので、いちばん最後に置いている
+restoreLayerState();

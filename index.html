@@ -78,8 +78,11 @@
 
   <!-- 住所・地名検索(右上) -->
   <div id="search-box">
-    <input type="text" id="search-input" placeholder="住所・地名で検索">
-    <button id="search-btn" title="検索">🔍</button>
+    <div id="search-field">
+      <button id="search-btn" title="検索">🔍</button>
+      <input type="text" id="search-input" placeholder="住所・地名で検索">
+      <button id="search-clear" title="消す(地図のピンも消えます)">✕</button>
+    </div>
     <div id="search-results" class="hidden"></div>
   </div>
 

@@ -791,25 +791,44 @@ label.layer-row:hover {
   width: 240px;
 }
 
-#search-box input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 7px 34px 7px 10px;
-  font-size: 13px;
+/* 虫眼鏡を左、消す(✕)を右に置いた1本の入力欄 */
+#search-field {
+  display: flex;
+  align-items: center;
+  background: white;
   border: 1px solid #999;
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
+#search-box input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  padding: 7px 4px;
+  font-size: 13px;
+}
+
 #search-box button {
-  position: absolute;
-  right: 2px;
-  top: 2px;
-  bottom: 2px;
+  flex: none;
   border: none;
   background: none;
   cursor: pointer;
   font-size: 14px;
+  padding: 6px 8px;
+  line-height: 1;
+  color: #555;
+}
+
+#search-box button:hover {
+  color: #2b5797;
+}
+
+/* 入力も検索結果もピンも無いときは、消すボタンを隠す */
+#search-clear.hidden {
+  display: none;
 }
 
 #search-results {
