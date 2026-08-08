@@ -212,7 +212,10 @@ const KUMAMOTO_LAYER_DEFS = [
   { key: "kuiki_kubun", file: "kuiki_kubun5.geojson", label: "区域区分",
     categoryFields: ["AreaType"], fillOpacity: 1, defaultOpacity: 0.35 },
   // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る
-  { key: "youto_chiiki", file: "youto_chiiki.geojson", label: "用途地域",
+  // 国交省データ(令和7年度)に、県が市町の計画図から起こした追加分を足して1つの用途地域にする。
+  // ファイルは出所ごとに分けたまま、表示と凡例は今までどおり用途地域の公式色で1つにまとめる。
+  { key: "youto_chiiki", file: "youto_chiiki.geojson",
+    extraFiles: ["youto_chiiki_r8_koshi.geojson"], label: "用途地域",
     categoryFields: ["YoutoName", "AreaType"], fillOpacity: 1, defaultOpacity: 0.7 },
   // 防火・準防火地域は公式凡例では「右下がり」の斜線。種別(AreaType)ごとに灰紫/桃で塗り分ける。
   // 細い斜線なので薄めると見えにくい。既定では透けさせない
@@ -478,7 +481,17 @@ function ensureKumamotoLayer(def, paneName) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     });
-  def._loadPromise = fetchJson(def.file)
+  // extraFiles … 同じレイヤーとして一緒に描く別ファイル。
+  // 用途地域は、国交省データと、県が計画図から起こした追加分をファイルとして分けて持っている。
+  // 表示のうえでは1つの「用途地域」なので、読み込んだあとに1つへまとめる。
+  const loadMain = def.extraFiles
+    ? Promise.all([def.file, ...def.extraFiles].map(fetchJson)).then((list) => ({
+        type: "FeatureCollection",
+        features: list.flatMap((g) => g.features),
+      }))
+    : fetchJson(def.file);
+
+  def._loadPromise = loadMain
     .then((geojson) =>
       def.clickFile
         ? fetchJson(def.clickFile).then((areaJson) => {
@@ -711,8 +724,10 @@ const KUMAMOTO_FIELD_LABELS = {
   FNNumber: "告示番号",
   // 地区計画の統合データで増えた項目。区域データの出どころを1地区ずつ示す
   AreaHa: "面積(ha)",
+  AreaHaMaster: "計画書等の面積(ha)",
   当初決定年月日: "当初決定年月日",
   最終変更年月日: "最終変更年月日",
+  FNDateISO: null, // 機械で並べ替えるための欄。FNDate と同じ内容なので吹き出しには出さない
   GeomSource: "区域データの出所",
   GeomSourceDoc: "出典資料",
   GeomNote: "注記",
@@ -735,7 +750,9 @@ function kumamotoPopupHtml(matches) {
     .map((m) => {
       const heading = m.name ? `${m.label}: ${m.name}` : m.label;
       const rows = Object.entries(m.properties)
-        .filter(([, v]) => v !== null && v !== undefined && v !== "")
+        // 値が空のものと、対応表で null にした項目(機械用の欄)は出さない
+        .filter(([k, v]) => v !== null && v !== undefined && v !== "" &&
+                            KUMAMOTO_FIELD_LABELS[k] !== null)
         .map(([k, v]) => {
           const label = KUMAMOTO_FIELD_LABELS[k] || k;
           const value = KUMAMOTO_PERCENT_FIELDS.has(k) ? `${v}%` : v;

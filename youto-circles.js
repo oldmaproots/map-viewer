@@ -15,6 +15,8 @@
 // ============================================================
 
 const YOUTO_CIRCLE_FILE = "data/kumamoto/youto_circles.geojson";
+// 県が市町の計画図から起こした用途地域の追加分。丸印も同じ決まりで作ってある
+const YOUTO_CIRCLE_EXTRA_FILES = ["data/kumamoto/youto_circles_r8_koshi.geojson"];
 
 // これ未満のズームでは丸を出さない（出すと重なって読めなくなる）
 const YOUTO_CIRCLE_MIN_ZOOM = 15;
@@ -28,11 +30,14 @@ let youtoCircleLoading = null;     // 読み込み中のPromise
 function loadYoutoCirclePoints() {
   if (youtoCirclePoints) return Promise.resolve(youtoCirclePoints);
   if (youtoCircleLoading) return youtoCircleLoading;
-  youtoCircleLoading = fetch(YOUTO_CIRCLE_FILE)
-    .then((res) => {
+  const get = (name) =>
+    fetch(name).then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
-    })
+    });
+  // 用途地域と同じく、国交省データ分と県が計画図から起こした追加分をファイルとして分けて持つ
+  youtoCircleLoading = Promise.all([YOUTO_CIRCLE_FILE, ...YOUTO_CIRCLE_EXTRA_FILES].map(get))
+    .then((list) => ({ features: list.flatMap((g) => g.features) }))
     .then((geojson) => {
       youtoCirclePoints = geojson.features.map((f) => ({
         lng: f.geometry.coordinates[0],
