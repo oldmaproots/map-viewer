@@ -725,6 +725,7 @@ const KUMAMOTO_FIELD_LABELS = {
   // 地区計画の統合データで増えた項目。区域データの出どころを1地区ずつ示す
   AreaHa: "面積(ha)",
   AreaHaMaster: "計画書等の面積(ha)",
+  参考リンク: "もとの資料",
   当初決定年月日: "当初決定年月日",
   最終変更年月日: "最終変更年月日",
   FNDateISO: null, // 機械で並べ替えるための欄。FNDate と同じ内容なので吹き出しには出さない
@@ -750,11 +751,19 @@ function kumamotoPopupHtml(matches) {
     .map((m) => {
       const heading = m.name ? `${m.label}: ${m.name}` : m.label;
       const rows = Object.entries(m.properties)
-        // 値が空のものと、対応表で null にした項目(機械用の欄)は出さない
+        // 値が空のものと、対応表で null にした項目(機械用の欄)は出さない。
+        // 「参考リンク先」は「参考リンク」の説明文なので、単独では出さない
         .filter(([k, v]) => v !== null && v !== undefined && v !== "" &&
-                            KUMAMOTO_FIELD_LABELS[k] !== null)
+                            KUMAMOTO_FIELD_LABELS[k] !== null && k !== "参考リンク先")
         .map(([k, v]) => {
           const label = KUMAMOTO_FIELD_LABELS[k] || k;
+          // 市町のページへのリンクは、押して飛べるようにする
+          if (k === "参考リンク") {
+            const text = m.properties["参考リンク先"] || "もとの資料を見る";
+            return `<tr><th>${escapeHtml(label)}</th><td>` +
+              `<a href="${escapeHtml(v)}" target="_blank" rel="noopener">` +
+              `${escapeHtml(text)}</a></td></tr>`;
+          }
           const value = KUMAMOTO_PERCENT_FIELDS.has(k) ? `${v}%` : v;
           return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`;
         })
