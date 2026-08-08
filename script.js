@@ -12,12 +12,6 @@
 
 const VIEW_STORAGE_KEY = "map-viewer-last-view";
 
-const GSI_ATTRIBUTION =
-  '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>';
-const KONJAKU_ATTRIBUTION =
-  '<a href="https://ktgis.net/kjmapw/index.html" target="_blank">今昔マップ on the web ((C)谷謙二)</a>';
-const MOJ_ATTRIBUTION =
-  '<a href="https://tiles.kmproj.com/" target="_blank">KotobaMedia</a>(<a href="https://www.moj.go.jp/MINJI/minji05_00494.html" target="_blank">法務省 登記所備付地図データ</a>)';
 
 // ---- 前回見ていた場所を復元(初回は熊本周辺) ----
 function loadLastView() {
@@ -29,10 +23,14 @@ function loadLastView() {
 }
 const lastView = loadLastView();
 
+// 出典は地図の隅ではなく、設定(⚙)の「出典」にまとめている。
+// 地図を隠さずに済み、地区計画のように1地区ずつ出所が違うものは吹き出しで示せるため。
+// Googleの背景地図だけはタイル画像にロゴが入っており、規約どおりそのまま表示される。
 const map = L.map("map", {
   center: [lastView.lat, lastView.lng],
   zoom: lastView.zoom,
   maxZoom: 20, // 法務局地図(地番)は20まで拡大できる
+  attributionControl: false,
 });
 
 L.control.scale({ imperial: false }).addTo(map);
@@ -41,29 +39,29 @@ L.control.scale({ imperial: false }).addTo(map);
 // 背景地図(どれか1つを選ぶ)
 // ============================================================
 const BASE_LAYERS = {
+  // maxNativeZoom = タイルが実際に用意されているズーム。
+  // これより拡大したときは、その画像を引き伸ばして maxZoom まで見せる
   標準地図: L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", {
-    attribution: GSI_ATTRIBUTION, maxNativeZoom: 18, maxZoom: 20,
+    maxNativeZoom: 18, maxZoom: 20,
   }),
   淡色地図: L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
-    attribution: GSI_ATTRIBUTION, maxNativeZoom: 18, maxZoom: 20,
+    maxNativeZoom: 18, maxZoom: 20,
   }),
   白地図: L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png", {
-    attribution: GSI_ATTRIBUTION, maxNativeZoom: 14, maxZoom: 20,
+    maxNativeZoom: 14, maxZoom: 20,
   }),
-  "空中写真(最新)": L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
-    attribution: GSI_ATTRIBUTION, maxNativeZoom: 18, maxZoom: 20,
+  "空中写真": L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
+    maxNativeZoom: 18, maxZoom: 20,
   }),
 };
 
-// ---- 基盤地図情報(線)の背景地図 ----
+// ---- 基盤地図情報の背景地図(線の項目だけ) ----
 // 国土地理院の基盤地図情報(基本項目)から、線の項目だけを取り出して
 // ベクトルタイル(PMTiles)にしたもの。海岸線・行政界・道路縁・建築物の外周線などを
 // 灰色一色で描く、白地図に近い下地。都市計画図を重ねて見るときに向いている。
 //
 // 元は1.5GBあるが、タイルにすると画面に映っている範囲の必要な分だけを読むので軽い。
 // 作り方は 10FGDBaseMap/scripts/build_web_tiles.py を参照。
-const FGD_ATTRIBUTION =
-  '<a href="https://fgd.gsi.go.jp/download/" target="_blank">基盤地図情報(国土地理院)</a>を加工して作成';
 
 // PMTilesを読むための下ごしらえ。MapLibreに「pmtiles://」の読み方を教える
 if (window.pmtiles && window.maplibregl) {
@@ -75,9 +73,8 @@ if (window.pmtiles && window.maplibregl) {
 map.createPane("base-vector");
 map.getPane("base-vector").style.zIndex = "210";
 
-BASE_LAYERS["基盤地図情報(線)"] = L.maplibreGL({
+BASE_LAYERS["基盤地図情報"] = L.maplibreGL({
   style: "fgd-basemap-style.json",
-  attribution: FGD_ATTRIBUTION,
   pane: "base-vector",
 });
 
@@ -118,7 +115,7 @@ const layerControls = new Map(); // id -> { checkbox, applyCheck }
 
 // 初めて開いたときに出しておくもの
 const DEFAULT_LAYER_STATE = {
-  base: "基盤地図情報(線)",
+  base: "基盤地図情報",
   layers: [
     { id: "youto-circles" },          // 容積率・建ぺい率の丸印
     { id: "kumamoto-youto_chiiki" },  // 用途地域
@@ -148,10 +145,20 @@ function saveLayerState() {
   } catch (e) { /* 保存できなくても表示には影響しない */ }
 }
 
+// 背景地図の名前を短くしたときの読み替え表。
+// 前の名前で保存されていても、次に開いたときに同じ背景地図に戻るようにする
+const RENAMED_BASE_LAYERS = {
+  "基盤地図情報(線)": "基盤地図情報",
+  "空中写真(最新)": "空中写真",
+};
+
 function loadLayerState() {
   try {
     const saved = JSON.parse(localStorage.getItem(LAYERS_STORAGE_KEY));
-    if (saved && Array.isArray(saved.layers)) return saved;
+    if (saved && Array.isArray(saved.layers)) {
+      if (RENAMED_BASE_LAYERS[saved.base]) saved.base = RENAMED_BASE_LAYERS[saved.base];
+      return saved;
+    }
   } catch (e) { /* 壊れていたら初期設定で始める */ }
   return DEFAULT_LAYER_STATE;
 }
@@ -505,7 +512,6 @@ function addSourceNote(container, html) {
           minZoom: era.minZoom ?? 8,
           maxNativeZoom: era.maxNativeZoom ?? 16,
           maxZoom: 20,
-          attribution: KONJAKU_ATTRIBUTION,
           pane: paneName,
         })
       );
@@ -531,7 +537,6 @@ function addSourceNote(container, html) {
   function makeMojLayer(styleFile, paneName) {
     const layer = L.maplibreGL({
       style: styleFile,
-      attribution: MOJ_ATTRIBUTION,
       pane: paneName, // 専用ペインに描く(重ね順の変更に対応)
     });
     return layer;
@@ -617,7 +622,6 @@ function addSourceNote(container, html) {
       minZoom: 5,
       maxNativeZoom: 15,
       maxZoom: 20,
-      attribution: GSI_ATTRIBUTION,
       pane: paneName,
     })
   );
@@ -680,13 +684,8 @@ function addSourceNote(container, html) {
   const body = buildCategory("6. 都市計画図");
   const sub = buildSubgroup(body, "熊本県", true);
 
-  addSourceNote(
-    sub,
-    '<a href="https://www.mlit.go.jp/toshi/tosiko/toshi_tosiko_tk_000087.html" target="_blank">' +
-    "都市計画決定GISデータ(国土交通省)令和7年度</a>を加工して作成。" +
-    "表示中に地図をクリックすると、その地点の区域名を表示します。"
-  );
-
+  // 出典は設定(⚙)の「出典」にまとめている。
+  // 地区計画は1地区ずつ出所が違うので、区域をクリックすると吹き出しに出る
   KUMAMOTO_LAYER_DEFS.forEach((def) => {
     buildLayerRow(
       sub,
@@ -701,7 +700,7 @@ function addSourceNote(container, html) {
       buildLayerRow(
         sub,
         "youto-circles",
-        "└ 容積率・建ぺい率(丸印)",
+        "└ 容積率・建ぺい率",
         (paneName) => createYoutoCircleLayer(paneName),
         1,
         // 用途地域の色の上に重ねないと文字が読めないので、常にいちばん手前に置く

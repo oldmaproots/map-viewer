@@ -14,9 +14,6 @@
 // ============================================================
 
 const KUMAMOTO_DATA_BASE = "data/kumamoto/";
-const KUMAMOTO_ATTRIBUTION =
-  '都市計画データ: <a href="https://www.mlit.go.jp/toshi/tosiko/toshi_tosiko_tk_000087.html" target="_blank">' +
-  '都市計画決定GISデータ(国土交通省)令和7年度</a>を加工して作成';
 
 // ---- 用途地域の色（都市計画総括図の公式凡例に準拠） ----
 // 建ぺい率・容積率つきの凡例表（_reference/用途地域凡例_色見本.png）の
@@ -201,13 +198,13 @@ const KUMAMOTO_LAYER_DEFS = [
   //             線には内と外が無いので、判定だけは面で行う。
   { key: "toshikeikaku_kuiki", file: "toshikeikaku_kuiki_line.geojson",
     clickFile: "toshikeikaku_kuiki_area.geojson", clickCategoryFields: ["TokeiName"],
-    label: "都市計画区域(境界)",
+    label: "都市計画区域",
     categoryFields: [], fillOpacity: 0, defaultOpacity: 1, weight: 2, dashArray: "14 5 2 5", color: "#333333" },
   // 準都市計画区域は公式凡例では「二点鎖線」(長い線→点2つ)。都市計画区域の一点鎖線と
   // 点の数で見分ける決まりなので、太さや色は都市計画区域とそろえる
   { key: "jun_toshikeikaku_kuiki", file: "jun_toshikeikaku_kuiki_line.geojson",
     clickFile: "jun_toshikeikaku_kuiki_area.geojson", clickCategoryFields: ["TokeiName"],
-    label: "準都市計画区域(境界)",
+    label: "準都市計画区域",
     categoryFields: [], fillOpacity: 0, defaultOpacity: 1, weight: 2, dashArray: "14 5 2 5 2 5", color: "#333333" },
   // 区域区分は公式凡例に合わせて5区分。市街化区域・市街化調整区域は元データそのままだが、
   // 用途指定区域・用途指定区域外・全域用途未指定区域は元データに無いため
@@ -501,7 +498,6 @@ function ensureKumamotoLayer(def, paneName) {
       def._layer = L.geoJSON(geojson, {
         // このレイヤー専用のレンダラー(専用paneに描く)。重ね順の変更に対応する
         renderer: createKumamotoRenderer(paneName),
-        attribution: KUMAMOTO_ATTRIBUTION,
         style: (feature) => computeKumamotoStyle(def, feature),
       });
       return def._layer;
@@ -713,6 +709,12 @@ const KUMAMOTO_FIELD_LABELS = {
   BCR: "建ぺい率",
   FNDate: "決定年月日",
   FNNumber: "告示番号",
+  // 地区計画の統合データで増えた項目。区域データの出どころを1地区ずつ示す
+  AreaHa: "面積(ha)",
+  GeomSource: "区域データの出所",
+  GeomSourceDoc: "出典資料",
+  GeomNote: "注記",
+  GeomAccuracy: "精度",
 };
 
 // 「%」を付けて読みやすくする項目
