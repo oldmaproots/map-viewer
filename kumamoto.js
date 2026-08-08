@@ -775,7 +775,12 @@ function kumamotoPopupHtml(matches) {
               `<a href="${escapeHtml(v)}" target="_blank" rel="noopener">PDFを開く</a>` +
               `</td></tr>`;
           }
-          const value = KUMAMOTO_PERCENT_FIELDS.has(k) ? `${v}%` : v;
+          // 地区計画の地区名は「〇〇地区計画」と最後まで書く。
+          // データ側は「岩倉台ニュータウン」のように地区名だけを持っている
+          let value = KUMAMOTO_PERCENT_FIELDS.has(k) ? `${v}%` : v;
+          if (m.label === "地区計画" && k === "DistName" && !String(v).endsWith("地区計画")) {
+            value = `${v}地区計画`;
+          }
           return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`;
         })
         .join("");
