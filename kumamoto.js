@@ -215,7 +215,8 @@ const KUMAMOTO_LAYER_DEFS = [
   // 国交省データ(令和7年度)に、県が市町の計画図から起こした追加分を足して1つの用途地域にする。
   // ファイルは出所ごとに分けたまま、表示と凡例は今までどおり用途地域の公式色で1つにまとめる。
   { key: "youto_chiiki", file: "youto_chiiki.geojson",
-    extraFiles: ["youto_chiiki_r8_koshi.geojson"], label: "用途地域",
+    extraFiles: ["youto_chiiki_r8_koshi.geojson", "youto_chiiki_r8_kikuyo.geojson"],
+    label: "用途地域",
     categoryFields: ["YoutoName", "AreaType"], fillOpacity: 1, defaultOpacity: 0.7 },
   // 防火・準防火地域は公式凡例では「右下がり」の斜線。種別(AreaType)ごとに灰紫/桃で塗り分ける。
   // 細い斜線なので薄めると見えにくい。既定では透けさせない
