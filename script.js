@@ -438,9 +438,11 @@ function buildLayerRow(container, id, label, makeLayer, defaultOpacity, options)
 // ---- カテゴリ(アコーディオン)の共通部品 ----
 const categoriesRoot = document.getElementById("categories");
 
-function buildCategory(title) {
+// open を true にすると、サイトを開いたときから開いた状態になる
+function buildCategory(title, open) {
   const details = document.createElement("details");
   details.className = "category";
+  if (open) details.open = true;
   const summary = document.createElement("summary");
   summary.textContent = title;
   details.appendChild(summary);
@@ -473,10 +475,47 @@ function addSourceNote(container, html) {
 }
 
 // ============================================================
-// 1. 新旧の地形図(今昔マップ【谷謙二氏】)
+// 1. 都市計画図 > 熊本県
+// このサイトの主役なので先頭に置き、開いた状態で始める。
+// 出しておくレイヤー(用途地域と容積率・建ぺい率)は DEFAULT_LAYER_STATE で決めている。
+// ============================================================
+(function buildToshikeikakuCategory() {
+  const body = buildCategory("1. 都市計画図", true);
+  const sub = buildSubgroup(body, "熊本県", true);
+
+  // 出典は設定(⚙)の「出典」にまとめている。
+  // 地区計画は1地区ずつ出所が違うので、区域をクリックすると吹き出しに出る
+  KUMAMOTO_LAYER_DEFS.forEach((def) => {
+    buildLayerRow(
+      sub,
+      `kumamoto-${def.key}`,
+      def.label,
+      (paneName) => ensureKumamotoLayer(def, paneName),
+      def.defaultOpacity // 透過スライダーの初期位置(レイヤーごとのちょうどよい濃さ)
+    );
+
+    // 用途地域のすぐ下に、容積率・建ぺい率の丸印の切り替えを置く
+    if (def.key === "youto_chiiki") {
+      buildLayerRow(
+        sub,
+        "youto-circles",
+        "└ 容積率・建ぺい率",
+        (paneName) => createYoutoCircleLayer(paneName),
+        1,
+        // 用途地域の色の上に重ねないと文字が読めないので、常にいちばん手前に置く
+        { alwaysOnTop: true }
+      );
+      // 丸印の読み方と、公式凡例の注記は右下の凡例のほうに出す
+      // （kumamoto.js の YOUTO_LEGEND_NOTES）
+    }
+  });
+})();
+
+// ============================================================
+// 2. 新旧の地形図(今昔マップ【谷謙二氏】)
 // ============================================================
 (function buildKonjakuCategory() {
-  const body = buildCategory("1. 新旧の地形図");
+  const body = buildCategory("2. 新旧の地形図");
   const sub = buildSubgroup(body, "今昔マップ【谷謙二氏】", true);
 
   addSourceNote(
@@ -522,10 +561,10 @@ function addSourceNote(container, html) {
 })();
 
 // ============================================================
-// 2. 公図・地番図・地名(法務局地図【KotobaMedia】)
+// 3. 公図・地番図・地名(法務局地図【KotobaMedia】)
 // ============================================================
 (function buildMojCategory() {
-  const body = buildCategory("2. 公図・地番図・地名");
+  const body = buildCategory("3. 公図・地番図・地名");
 
   addSourceNote(
     body,
@@ -551,10 +590,10 @@ function addSourceNote(container, html) {
 })();
 
 // ============================================================
-// 3. 地形(基盤地図情報の標高データから手元で描く)
+// 4. 地形(基盤地図情報の標高データから手元で描く)
 // ============================================================
 (function buildChikeiCategory() {
-  const body = buildCategory("3. 地形");
+  const body = buildCategory("4. 地形");
 
   addSourceNote(
     body,
@@ -583,10 +622,10 @@ function addSourceNote(container, html) {
 })();
 
 // ============================================================
-// 4. 年代別の写真(時系列表示)
+// 5. 年代別の写真(時系列表示)
 // ============================================================
 (function buildNendaiCategory() {
-  const body = buildCategory("4. 年代別の写真");
+  const body = buildCategory("5. 年代別の写真");
 
   addSourceNote(
     body,
@@ -611,10 +650,10 @@ function addSourceNote(container, html) {
 })();
 
 // ============================================================
-// 5. 標高・土地の凹凸
+// 6. 標高・土地の凹凸
 // ============================================================
 (function buildHyokoCategory() {
-  const body = buildCategory("5. 標高・土地の凹凸");
+  const body = buildCategory("6. 標高・土地の凹凸");
 
   // (a) 地理院の色別標高図(できあいのタイル)
   buildLayerRow(body, "relief", "色別標高図(地理院)", (paneName) =>
@@ -674,41 +713,6 @@ function addSourceNote(container, html) {
     checkbox.dispatchEvent(new Event("change"));
     checkbox.checked = true;
     checkbox.dispatchEvent(new Event("change"));
-  });
-})();
-
-// ============================================================
-// 6. 都市計画図 > 熊本県
-// ============================================================
-(function buildToshikeikakuCategory() {
-  const body = buildCategory("6. 都市計画図");
-  const sub = buildSubgroup(body, "熊本県", true);
-
-  // 出典は設定(⚙)の「出典」にまとめている。
-  // 地区計画は1地区ずつ出所が違うので、区域をクリックすると吹き出しに出る
-  KUMAMOTO_LAYER_DEFS.forEach((def) => {
-    buildLayerRow(
-      sub,
-      `kumamoto-${def.key}`,
-      def.label,
-      (paneName) => ensureKumamotoLayer(def, paneName),
-      def.defaultOpacity // 透過スライダーの初期位置(レイヤーごとのちょうどよい濃さ)
-    );
-
-    // 用途地域のすぐ下に、容積率・建ぺい率の丸印の切り替えを置く
-    if (def.key === "youto_chiiki") {
-      buildLayerRow(
-        sub,
-        "youto-circles",
-        "└ 容積率・建ぺい率",
-        (paneName) => createYoutoCircleLayer(paneName),
-        1,
-        // 用途地域の色の上に重ねないと文字が読めないので、常にいちばん手前に置く
-        { alwaysOnTop: true }
-      );
-      // 丸印の読み方と、公式凡例の注記は右下の凡例のほうに出す
-      // （kumamoto.js の YOUTO_LEGEND_NOTES）
-    }
   });
 })();
 

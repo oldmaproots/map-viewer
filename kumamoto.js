@@ -711,6 +711,8 @@ const KUMAMOTO_FIELD_LABELS = {
   FNNumber: "告示番号",
   // 地区計画の統合データで増えた項目。区域データの出どころを1地区ずつ示す
   AreaHa: "面積(ha)",
+  当初決定年月日: "当初決定年月日",
+  最終変更年月日: "最終変更年月日",
   GeomSource: "区域データの出所",
   GeomSourceDoc: "出典資料",
   GeomNote: "注記",
