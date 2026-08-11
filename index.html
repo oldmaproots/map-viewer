@@ -5,23 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>地図ビューア</title>
 
+  <!-- ============================================================
+       このページは2通りの開かれ方をする
+       　http:// … インターネット上のサイト（GitHub Pages）
+       　file:// … 庁内の共有サーバーに置いたフォルダをダブルクリックで開いた状態
+       ライブラリは lib/ に同梱してあるので、どちらでも同じものを読む。
+       庁内でだけ要るファイルは、下の小さな仕掛けで開かれ方を見てから読む。
+       ============================================================ -->
+
   <!-- Leaflet: 地図表示のための無料ライブラリ -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="lib/leaflet.css">
+  <script src="lib/leaflet.js"></script>
 
   <!-- MapLibre GL: ベクトルタイル(法務局地図など)を描くためのライブラリ。
-       leaflet-maplibre-gl はそれをLeafletのレイヤーとして使えるようにする接続部品 -->
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
-
-  <!-- PMTiles: ベクトルタイルを1つのファイルにまとめた形式を読むための部品。
-       基盤地図情報の線(背景地図)で使う。ファイルの必要な部分だけを
-       取ってくるので、100MB近いファイルでも全部を読み込まずに済む -->
-  <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
-
-  <!-- GoogleMutant: Googleマップ(公式API)をLeafletの背景地図として使う接続部品 -->
-  <script src="https://unpkg.com/leaflet.gridlayer.googlemutant@0.14.1/dist/Leaflet.GoogleMutant.js"></script>
+       leaflet-maplibre-gl はそれをLeafletのレイヤーとして使えるようにする接続部品。
+       file:// では動かない(WebWorkerが使えないため)ので、庁内では読まない -->
+  <script>
+    // 庁内(file://)では外部に出られず、MapLibre/PMTiles/Googleも動かない。
+    // document.write を使っているのは、script.js より先に確実に読み込ませるため
+    (function () {
+      const offline = location.protocol === "file:";
+      const add = (src) => document.write('<script src="' + src + '"><\/script>');
+      if (offline) {
+        // 庁内でだけ要るもの
+        document.write('<script src="data/fgd_tiles/index.js"><\/script>');  // 焼いたタイルの一覧
+        document.write('<script src="data/kumamoto/layers.js"><\/script>');  // 読むファイルの一覧
+      } else {
+        document.write('<link rel="stylesheet" href="lib/maplibre-gl.css">');
+        add("lib/maplibre-gl.js");
+        add("lib/leaflet-maplibre-gl.js");
+        add("lib/pmtiles.js");
+        // GoogleMutant: Googleマップ(公式API)をLeafletの背景地図として使う接続部品
+        add("https://unpkg.com/leaflet.gridlayer.googlemutant@0.14.1/dist/Leaflet.GoogleMutant.js");
+      }
+    })();
+  </script>
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -146,6 +164,9 @@
   <script src="konjaku-data.js"></script>
   <script src="dem-layers.js"></script>
   <script src="timeseries.js"></script>
+  <!-- 地区計画・都市計画区域・市町村・用途地域の名前と場所の索引。
+       検索欄で地区名から飛ぶために使う（scripts/build_search_index.py が作る） -->
+  <script src="data/search_index.js"></script>
   <script src="kumamoto.js"></script>
   <script src="youto-circles.js"></script>
   <script src="script.js"></script>

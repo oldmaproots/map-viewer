@@ -8,3 +8,16 @@ _reference/
 # 元ファイル自体はリポジトリに入れない（重いだけで公開する必要がない）
 _source/
 downloaddata/
+
+# ---- 庁内配布版のためのもの（GitHubには載せない） ----
+# 庁内では file:// で開くため fetch が使えず、GeoJSONを .js に包み直したものが要る。
+# 中身は data/kumamoto/*.geojson と同じなので、二重に公開する意味がない。
+# scripts/build_offline_data.py で作り直せる。
+data/kumamoto/*.geojson.js
+
+# 庁内版の背景地図（ラスタタイル 254MB・34,687ファイル）。
+# 実体は 10FGDBaseMap/_publish/fgd_tiles にあり、配布ZIPを作るときに合流させる。
+data/fgd_tiles/
+
+# 配布用のZIP
+_配布/

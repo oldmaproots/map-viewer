@@ -38,22 +38,27 @@ L.control.scale({ imperial: false }).addTo(map);
 // ============================================================
 // 背景地図(どれか1つを選ぶ)
 // ============================================================
-const BASE_LAYERS = {
+const BASE_LAYERS = {};
+
+// インターネットに出られるときだけ使える背景地図（地理院タイル）。
+// 庁内(file://)では届かないので、一覧に出さない。
+// **消すのではなく「出さない」にしているのは、プログラムを1本に保つため。**
+if (!IS_OFFLINE) {
   // maxNativeZoom = タイルが実際に用意されているズーム。
   // これより拡大したときは、その画像を引き伸ばして maxZoom まで見せる
-  標準地図: L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", {
+  BASE_LAYERS["標準地図"] = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", {
     maxNativeZoom: 18, maxZoom: 20,
-  }),
-  淡色地図: L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+  });
+  BASE_LAYERS["淡色地図"] = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
     maxNativeZoom: 18, maxZoom: 20,
-  }),
-  白地図: L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png", {
+  });
+  BASE_LAYERS["白地図"] = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png", {
     maxNativeZoom: 14, maxZoom: 20,
-  }),
-  "空中写真": L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
+  });
+  BASE_LAYERS["空中写真"] = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", {
     maxNativeZoom: 18, maxZoom: 20,
-  }),
-};
+  });
+}
 
 // ---- 基盤地図情報の背景地図(線の項目だけ) ----
 // 国土地理院の基盤地図情報(基本項目)から、線の項目だけを取り出して
@@ -63,23 +68,86 @@ const BASE_LAYERS = {
 // 元は1.5GBあるが、タイルにすると画面に映っている範囲の必要な分だけを読むので軽い。
 // 作り方は 10FGDBaseMap/scripts/build_web_tiles.py を参照。
 
-// PMTilesを読むための下ごしらえ。MapLibreに「pmtiles://」の読み方を教える
-if (window.pmtiles && window.maplibregl) {
-  maplibregl.addProtocol("pmtiles", new pmtiles.Protocol().tile);
+// 同じ「基盤地図情報」でも、開かれ方によって出し方が変わる。
+//   http:// … ベクトルタイル(PMTiles)。軽くて拡大しても文字がきれい
+//   file:// … 手元で焼いたPNGタイル。PMTilesはHTTP Rangeという仕組みが要るので使えない
+if (!IS_OFFLINE) {
+  // PMTilesを読むための下ごしらえ。MapLibreに「pmtiles://」の読み方を教える
+  if (window.pmtiles && window.maplibregl) {
+    maplibregl.addProtocol("pmtiles", new pmtiles.Protocol().tile);
+  }
+  // 背景地図なので、都市計画図などの重ねるレイヤーより奥に描く専用の面を用意する
+  // (タイルの面=200 と 重ねるレイヤーの面=410〜 の間に入れる)
+  map.createPane("base-vector");
+  map.getPane("base-vector").style.zIndex = "210";
+
+  BASE_LAYERS["基盤地図情報"] = L.maplibreGL({
+    style: "fgd-basemap-style.json",
+    pane: "base-vector",
+  });
+} else {
+  BASE_LAYERS["基盤地図情報"] = createFgdRasterBaseLayer();
 }
 
-// 背景地図なので、都市計画図などの重ねるレイヤーより奥に描く専用の面を用意する
-// (タイルの面=200 と 重ねるレイヤーの面=410〜 の間に入れる)
-map.createPane("base-vector");
-map.getPane("base-vector").style.zIndex = "210";
+// 庁内では地理院の「白地図」が使えないので、代わりのまっさらな下地を用意する。
+// 公開サイトは今までどおり白地図があるので、増やさない
+if (IS_OFFLINE) {
+  const WhiteLayer = L.GridLayer.extend({
+    createTile() {
+      const tile = document.createElement("div");
+      tile.style.background = "#ffffff";
+      return tile;
+    },
+  });
+  BASE_LAYERS["白紙"] = new WhiteLayer({ minZoom: 0, maxZoom: 20 });
+}
 
-BASE_LAYERS["基盤地図情報"] = L.maplibreGL({
-  style: "fgd-basemap-style.json",
-  pane: "base-vector",
-});
+// ---- 庁内版の背景地図（手元で焼いたPNGタイル） ----
+// 焼き方は scripts/build_fgd_tiles.py。
+//   data/fgd_tiles/{z}/{x}/{y}.png
+//   熊本県全域         … z8〜z14
+//   都市計画区域の中だけ … z15〜z17
+// 区域の外まで z17 を焼くと35万枚を超え、共有サーバーへのコピーだけで何時間もかかる。
+function createFgdRasterBaseLayer() {
+  // 焼いていないタイル（海の上や、区域の外のz15以上）を取りに行かせないための一覧。
+  // file:// では無いファイルを取りに行くとコンソールに延々と警告が並ぶ。
+  // 一覧は data/fgd_tiles/index.js（build_fgd_tiles.py が自動生成）
+  const tileSet = {};
+  const index = window.FGD_TILE_INDEX || {};
+  Object.keys(index).forEach((z) => {
+    const set = new Set();
+    Object.keys(index[z]).forEach((x) => {
+      index[z][x].split(",").forEach((y) => set.add(`${x}/${y}`));
+    });
+    tileSet[z] = set;
+  });
+
+  // 1x1の透明なPNG。焼いていないタイルの代わりに出す（下の白が透ける）
+  const BLANK =
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  const FgdTileLayer = L.TileLayer.extend({
+    getTileUrl(coords) {
+      const set = tileSet[coords.z];
+      if (!set || !set.has(`${coords.x}/${coords.y}`)) return BLANK;
+      return L.TileLayer.prototype.getTileUrl.call(this, coords);
+    },
+  });
+
+  const URL = "data/fgd_tiles/{z}/{x}/{y}.png";
+  // 2枚重ねにする。県全域(z8〜14)を下地に、都市計画区域(z15〜17)を上に重ねる。
+  // こうすると区域の外を拡大しても真っ白にならず、z14の画像が引き伸ばして出る
+  const wide = new FgdTileLayer(URL, {
+    minZoom: 0, maxNativeZoom: 14, maxZoom: 20, zIndex: 1,
+  });
+  const detail = new FgdTileLayer(URL, {
+    minZoom: 15, minNativeZoom: 15, maxNativeZoom: 17, maxZoom: 20, zIndex: 2,
+  });
+  return L.layerGroup([wide, detail]);
+}
 
 // いま選んでいる背景地図。名前も覚えておく(保存・復元に使う)
-let currentBaseName = "標準地図";
+// 庁内では地理院タイルが無いので、基盤地図情報から始める
+let currentBaseName = IS_OFFLINE ? "基盤地図情報" : "標準地図";
 let currentBase = BASE_LAYERS[currentBaseName];
 currentBase.addTo(map);
 
@@ -515,6 +583,8 @@ function addSourceNote(container, html) {
 // 2. 新旧の地形図(今昔マップ【谷謙二氏】)
 // ============================================================
 (function buildKonjakuCategory() {
+  // 庁内(file://)では外部に出られないので作らない … 今昔マップ（外部のタイル配信）
+  if (IS_OFFLINE) return;
   const body = buildCategory("2. 新旧の地形図");
   const sub = buildSubgroup(body, "今昔マップ【谷謙二氏】", true);
 
@@ -564,6 +634,8 @@ function addSourceNote(container, html) {
 // 3. 公図・地番図・地名(法務局地図【KotobaMedia】)
 // ============================================================
 (function buildMojCategory() {
+  // 庁内(file://)では外部に出られないので作らない … 法務局の公図（外部のタイル配信）
+  if (IS_OFFLINE) return;
   const body = buildCategory("3. 公図・地番図・地名");
 
   addSourceNote(
@@ -593,6 +665,8 @@ function addSourceNote(container, html) {
 // 4. 地形(基盤地図情報の標高データから手元で描く)
 // ============================================================
 (function buildChikeiCategory() {
+  // 庁内(file://)では外部に出られないので作らない … 標高タイル（地理院・Q地図）
+  if (IS_OFFLINE) return;
   const body = buildCategory("4. 地形");
 
   addSourceNote(
@@ -625,6 +699,8 @@ function addSourceNote(container, html) {
 // 5. 年代別の写真(時系列表示)
 // ============================================================
 (function buildNendaiCategory() {
+  // 庁内(file://)では外部に出られないので作らない … 年代別の空中写真（地理院）
+  if (IS_OFFLINE) return;
   const body = buildCategory("5. 年代別の写真");
 
   addSourceNote(
@@ -653,6 +729,8 @@ function addSourceNote(container, html) {
 // 6. 標高・土地の凹凸
 // ============================================================
 (function buildHyokoCategory() {
+  // 庁内(file://)では外部に出られないので作らない … 色別標高図（地理院）
+  if (IS_OFFLINE) return;
   const body = buildCategory("6. 標高・土地の凹凸");
 
   // (a) 地理院の色別標高図(できあいのタイル)
@@ -882,6 +960,39 @@ function refreshSearchClearButton() {
   searchClearBtn.classList.toggle("hidden", !hasSomething);
 }
 
+// ---- 手元の索引から探す（通信しない） ----
+// data/search_index.js に、地区計画・都市計画区域・市町村・用途地域の
+// 名前と場所を入れてある（scripts/build_search_index.py が作る）。
+// 庁内では外部の住所検索が使えないので必ずこちらを使うが、
+// **インターネット側でも「岩倉台」のような地区名で飛べると便利なので、両方で使う。**
+// 索引の項目名は短くしてある（ファイルを小さくするため）。
+//   n=名前  k=種類  c=市町村  y=緯度  x=経度  z=ズーム  a=広さの目安
+function indexSearch(query) {
+  const list = window.SEARCH_INDEX || [];
+  if (!list.length) return [];
+  const q = normalizeForSearch(query);
+  if (!q) return [];
+  const 前方 = [];
+  const 部分 = [];
+  list.forEach((it) => {
+    const name = normalizeForSearch(it.n);
+    if (name.startsWith(q)) 前方.push(it);
+    else if (name.includes(q)) 部分.push(it);
+  });
+  return [...前方, ...部分].map((it) => ({
+    title: `${it.n}（${it.k}${it.c ? "・" + it.c : ""}）`,
+    lat: it.y, lng: it.x, zoom: it.z || 15,
+  }));
+}
+
+// 全角と半角、大文字と小文字、空白の違いを吸収する
+function normalizeForSearch(s) {
+  return String(s)
+    .normalize("NFKC")
+    .replace(/[\s　]/g, "")
+    .toLowerCase();
+}
+
 async function gsiSearch(query) {
   const res = await fetch(
     `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(query)}`
@@ -906,7 +1017,7 @@ function renderSearchResults(items) {
     div.className = "search-result-item selectable";
     div.textContent = item.title;
     div.addEventListener("click", () => {
-      map.flyTo([item.lat, item.lng], 15);
+      map.flyTo([item.lat, item.lng], item.zoom || 15);
       removeSearchMarker();
       searchMarker = L.marker([item.lat, item.lng]).addTo(map).bindPopup(item.title);
       searchResults.classList.add("hidden");
@@ -926,14 +1037,31 @@ async function doSearch() {
     refreshSearchClearButton();
     return;
   }
+  // まず手元の索引（地区計画・都市計画区域・市町村・用途地域）から探す。
+  // 通信しないので即座に出る
+  const 索引 = indexSearch(query);
+
+  // 庁内では外部の住所検索が使えないので、索引の結果だけを出して終わり
+  if (IS_OFFLINE) {
+    renderSearchResults(索引);
+    searchResults.classList.remove("hidden");
+    refreshSearchClearButton();
+    return;
+  }
+
   searchResults.innerHTML = "<div class='search-result-item'>検索中…</div>";
   searchResults.classList.remove("hidden");
   refreshSearchClearButton();
   try {
-    renderSearchResults(await gsiSearch(query));
+    // 索引で見つかったものを先に、そのあとに地理院の住所検索の結果を並べる
+    renderSearchResults([...索引, ...(await gsiSearch(query))]);
   } catch (err) {
-    searchResults.classList.add("hidden");
-    showToast("検索に失敗しました(通信状態を確認してください)");
+    // 通信に失敗しても、索引だけは出せる
+    if (索引.length) renderSearchResults(索引);
+    else {
+      searchResults.classList.add("hidden");
+      showToast("検索に失敗しました(通信状態を確認してください)");
+    }
   }
   refreshSearchClearButton();
 }
@@ -947,8 +1075,25 @@ searchInput.addEventListener("keydown", (e) => {
 });
 refreshSearchClearButton();
 
+// 庁内(file://)では、設定の「出典」に書いてある外部サイトへのリンクを押しても開けない。
+// リンクを消してしまうと公開サイトと作りが分かれてしまうので、断り書きを1行足すだけにする
+if (IS_OFFLINE) {
+  const dl = document.querySelector(".settings-sources");
+  if (dl) {
+    const p = document.createElement("p");
+    p.className = "settings-note";
+    p.style.marginTop = "10px";
+    p.textContent =
+      "この版は庁内で使うためのものです。上のリンク先は外部のページなので庁内からは開けません" +
+      "（出典の記載としてご覧ください）。地理院タイル・今昔マップ・公図・空中写真・住所検索は" +
+      "使えないため、一覧に出していません。";
+    dl.parentNode.insertBefore(p, dl.nextSibling);
+  }
+}
+
 // ============================================================
 // 現在地ボタン(ブラウザの位置情報APIを使用)
+// 庁内(file://)ではブラウザが位置情報の取得そのものを断るので出さない
 // ============================================================
 let locationMarker = null;
 let locationCircle = null;
@@ -966,25 +1111,27 @@ const LocateControl = L.Control.extend({
     return btn;
   },
 });
-new LocateControl({ position: "bottomright" }).addTo(map);
+if (!IS_OFFLINE) {
+  new LocateControl({ position: "bottomright" }).addTo(map);
 
-map.on("locationfound", (e) => {
-  if (locationMarker) locationMarker.remove();
-  if (locationCircle) locationCircle.remove();
-  locationMarker = L.marker(e.latlng).addTo(map).bindPopup("現在地");
-  // 位置情報の誤差の範囲を円で示す
-  locationCircle = L.circle(e.latlng, {
-    radius: e.accuracy,
-    color: "#4285f4",
-    fillColor: "#4285f4",
-    fillOpacity: 0.15,
-    weight: 1,
-  }).addTo(map);
-});
+  map.on("locationfound", (e) => {
+    if (locationMarker) locationMarker.remove();
+    if (locationCircle) locationCircle.remove();
+    locationMarker = L.marker(e.latlng).addTo(map).bindPopup("現在地");
+    // 位置情報の誤差の範囲を円で示す
+    locationCircle = L.circle(e.latlng, {
+      radius: e.accuracy,
+      color: "#4285f4",
+      fillColor: "#4285f4",
+      fillOpacity: 0.15,
+      weight: 1,
+    }).addTo(map);
+  });
 
-map.on("locationerror", () => {
-  showToast("現在地を取得できませんでした(位置情報の許可を確認してください)");
-});
+  map.on("locationerror", () => {
+    showToast("現在地を取得できませんでした(位置情報の許可を確認してください)");
+  });
+}
 
 // ============================================================
 // ステータス表示・クリック・表示位置の保存

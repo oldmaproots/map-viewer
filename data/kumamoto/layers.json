@@ -1,0 +1,11 @@
+{
+ "youto_chiiki": [
+  "youto_chiiki.geojson",
+  "youto_chiiki_r8_kikuyo.geojson",
+  "youto_chiiki_r8_koshi.geojson"
+ ],
+ "youto-circles": [
+  "youto_circles.geojson",
+  "youto_circles_r8_koshi.geojson"
+ ]
+}
