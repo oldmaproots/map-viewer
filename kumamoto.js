@@ -15,6 +15,99 @@
 
 const KUMAMOTO_DATA_BASE = "data/kumamoto/";
 
+// ============================================================
+// このサイトは2通りの開かれ方をする
+// ------------------------------------------------------------
+//   http:// … インターネット上のサイト（GitHub Pages）。今までどおり全部使える
+//   file:// … 庁内の共有サーバーに置いたフォルダを、直接ダブルクリックで開いた状態
+//
+// file:// ではブラウザが安全のため次を禁じる。
+//   ・fetch() で手元のファイルを読むこと     → <script> で読む形に切り替える
+//   ・外部のサイトへ通信すること              → 外部が要るレイヤーは出さない
+//
+// **プログラムは1本だけ。**開かれ方を見て動きを変える。
+// こうしないと「公開用」「庁内用」の2本を別々に直し続けることになり、必ず食い違う。
+// ============================================================
+const IS_OFFLINE = location.protocol === "file:";
+
+// 読み込んだデータの置き場。file:// のときは data/kumamoto/*.geojson.js が
+// ここへ入れてくれる（中身は .geojson とまったく同じ）
+window.KUMAMOTO_DATA = window.KUMAMOTO_DATA || {};
+const kumamotoDataLoads = new Map(); // ファイル名 -> 読み込み中のPromise
+
+// GeoJSONを1つ読む。二度目からは覚えているものを返す
+function loadKumamotoData(name) {
+  if (window.KUMAMOTO_DATA[name]) return Promise.resolve(window.KUMAMOTO_DATA[name]);
+  if (kumamotoDataLoads.has(name)) return kumamotoDataLoads.get(name);
+
+  const p = (IS_OFFLINE ? loadByScript(name) : loadByFetch(name))
+    .then((data) => {
+      window.KUMAMOTO_DATA[name] = data;
+      return data;
+    })
+    .catch((err) => {
+      kumamotoDataLoads.delete(name); // 次回もう一度試せるようにする
+      throw err;
+    });
+  kumamotoDataLoads.set(name, p);
+  return p;
+}
+
+function loadByFetch(name) {
+  return fetch(KUMAMOTO_DATA_BASE + name).then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
+}
+
+// file:// 用。<script> なら手元のファイルを読める
+function loadByScript(name) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = KUMAMOTO_DATA_BASE + name + ".js";
+    s.onload = () => {
+      const data = window.KUMAMOTO_DATA[name];
+      if (data) resolve(data);
+      else reject(new Error(`${name} の中身がありません`));
+    };
+    s.onerror = () => reject(new Error(`${s.src} を読み込めません`));
+    document.head.appendChild(s);
+  });
+}
+
+// ============================================================
+// レイヤーが読むファイルの一覧（data/kumamoto/layers.json）
+// ------------------------------------------------------------
+// 用途地域のように、出所ごとにファイルを分けたまま1つのレイヤーとして描くものがある。
+// どのファイルを読むかをこのプログラムに直書きすると、市町を足すたびに
+// ここと youto-circles.js の2か所を直すことになり、片方を忘れる。
+// そこで一覧を外に出し、scripts/build_layers_manifest.py が自動で書くようにした。
+// **市町を足すときプログラムを触る必要はない。**
+// 一覧が読めなかったときは、各レイヤー定義に書いてある file だけを読む。
+// ============================================================
+let kumamotoManifest = null;
+
+function loadLayersManifest() {
+  if (kumamotoManifest) return Promise.resolve(kumamotoManifest);
+  const fallback = () => (kumamotoManifest = {});
+  if (IS_OFFLINE) {
+    // file:// では fetch が使えないので、index.html が先に読み込んでいる
+    kumamotoManifest = window.KUMAMOTO_LAYERS || {};
+    return Promise.resolve(kumamotoManifest);
+  }
+  return fetch(KUMAMOTO_DATA_BASE + "layers.json")
+    .then((r) => (r.ok ? r.json() : {}))
+    .then((j) => (kumamotoManifest = j))
+    .catch(fallback);
+}
+
+// そのレイヤーが読むファイルの一覧を返す
+function filesForLayer(def) {
+  const m = kumamotoManifest && kumamotoManifest[def.key];
+  if (m && m.length) return m;
+  return [def.file, ...(def.extraFiles || [])];
+}
+
 // ---- 用途地域の色（都市計画総括図の公式凡例に準拠） ----
 // 建ぺい率・容積率つきの凡例表（_reference/用途地域凡例_色見本.png）の
 // 色見本から1マスずつ実測した色をそのまま使う。
@@ -214,8 +307,9 @@ const KUMAMOTO_LAYER_DEFS = [
   // 公式凡例の色は淡いものが多いため、背景地図に埋もれないよう濃いめに塗る
   // 国交省データ(令和7年度)に、県が市町の計画図から起こした追加分を足して1つの用途地域にする。
   // ファイルは出所ごとに分けたまま、表示と凡例は今までどおり用途地域の公式色で1つにまとめる。
+  // **読むファイルは data/kumamoto/layers.json に書いてある。ここに足す必要はない**
+  // （市町を増やしたら scripts/build_layers_manifest.py を流せば自動で載る）
   { key: "youto_chiiki", file: "youto_chiiki.geojson",
-    extraFiles: ["youto_chiiki_r8_koshi.geojson", "youto_chiiki_r8_kikuyo.geojson"],
     label: "用途地域",
     categoryFields: ["YoutoName", "AreaType"], fillOpacity: 1, defaultOpacity: 0.7 },
   // 防火・準防火地域は公式凡例では「右下がり」の斜線。種別(AreaType)ごとに灰紫/桃で塗り分ける。
@@ -476,26 +570,23 @@ function computeKumamotoStyle(def, feature) {
 // paneName … このレイヤー専用の描画面(重ね順を変えるために使う)。script.jsが渡す。
 function ensureKumamotoLayer(def, paneName) {
   if (def._loadPromise) return def._loadPromise;
-  // clickFile があるレイヤーは、描く用(線)とクリック判定用(面)の2つを読む
-  const fetchJson = (name) =>
-    fetch(KUMAMOTO_DATA_BASE + name).then((res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    });
-  // extraFiles … 同じレイヤーとして一緒に描く別ファイル。
-  // 用途地域は、国交省データと、県が計画図から起こした追加分をファイルとして分けて持っている。
-  // 表示のうえでは1つの「用途地域」なので、読み込んだあとに1つへまとめる。
-  const loadMain = def.extraFiles
-    ? Promise.all([def.file, ...def.extraFiles].map(fetchJson)).then((list) => ({
+
+  // 読むファイルは layers.json から決まる（無ければ定義に書いてある file）。
+  // 用途地域のように出所ごとにファイルを分けているものは複数になるので、
+  // 全部読んでから1つにまとめる。利用者から見れば1つのレイヤー。
+  def._loadPromise = loadLayersManifest()
+    .then(() => {
+      const files = filesForLayer(def);
+      if (files.length === 1) return loadKumamotoData(files[0]);
+      return Promise.all(files.map(loadKumamotoData)).then((list) => ({
         type: "FeatureCollection",
         features: list.flatMap((g) => g.features),
-      }))
-    : fetchJson(def.file);
-
-  def._loadPromise = loadMain
+      }));
+    })
     .then((geojson) =>
+      // clickFile があるレイヤーは、描く用(線)とクリック判定用(面)の2つを読む
       def.clickFile
-        ? fetchJson(def.clickFile).then((areaJson) => {
+        ? loadKumamotoData(def.clickFile).then((areaJson) => {
             def._clickFeatures = areaJson.features;
             return geojson;
           })

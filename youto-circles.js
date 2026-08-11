@@ -14,11 +14,11 @@
 // の3つの条件で絞ってから描く。
 // ============================================================
 
-const YOUTO_CIRCLE_FILE = "data/kumamoto/youto_circles.geojson";
-// 県が市町の計画図から起こした用途地域の追加分。丸印も同じ決まりで作ってある。
-// 菊陽町R8の4区域はすべて200/60の準住居・第１種住居・工業なので、
-// 公式凡例の注1により丸印そのものが無い。そのためここには載せていない。
-const YOUTO_CIRCLE_EXTRA_FILES = ["data/kumamoto/youto_circles_r8_koshi.geojson"];
+// 読むファイルは data/kumamoto/layers.json に書いてある（kumamoto.js が読む）。
+// 市町を足したときにここを直し忘れる事故を防ぐため、直書きはしない。
+// 一覧が無いときのために、国交省データ分だけは既定として持っておく。
+const YOUTO_CIRCLE_KEY = "youto-circles";
+const YOUTO_CIRCLE_FILE = "youto_circles.geojson";
 
 // これ未満のズームでは丸を出さない（出すと重なって読めなくなる）
 const YOUTO_CIRCLE_MIN_ZOOM = 15;
@@ -32,13 +32,15 @@ let youtoCircleLoading = null;     // 読み込み中のPromise
 function loadYoutoCirclePoints() {
   if (youtoCirclePoints) return Promise.resolve(youtoCirclePoints);
   if (youtoCircleLoading) return youtoCircleLoading;
-  const get = (name) =>
-    fetch(name).then((res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    });
-  // 用途地域と同じく、国交省データ分と県が計画図から起こした追加分をファイルとして分けて持つ
-  youtoCircleLoading = Promise.all([YOUTO_CIRCLE_FILE, ...YOUTO_CIRCLE_EXTRA_FILES].map(get))
+  // 用途地域と同じく、国交省データ分と県が計画図から起こした追加分を
+  // ファイルとして分けて持つ。どれを読むかは layers.json が決める。
+  // 読み込みそのものは kumamoto.js の loadKumamotoData に任せる
+  // （http:// なら fetch、file:// なら <script>。切り替えを1か所にまとめるため）
+  youtoCircleLoading = loadLayersManifest()
+    .then(() => {
+      const files = filesForLayer({ key: YOUTO_CIRCLE_KEY, file: YOUTO_CIRCLE_FILE });
+      return Promise.all(files.map(loadKumamotoData));
+    })
     .then((list) => ({ features: list.flatMap((g) => g.features) }))
     .then((geojson) => {
       youtoCirclePoints = geojson.features.map((f) => ({
